@@ -37,7 +37,10 @@ running Ubuntu 24.04.4 with GNOME 46 on X11.
 
 - Feature `0x19B0` is the haptic motor: function `0x00` reports capabilities
   and `0x04` plays a waveform. Indices 0-14 are accepted; 15 and above are
-  rejected with `INVALID_ARGUMENT`.
+  rejected with `INVALID_ARGUMENT`. The feature has exactly five functions —
+  `0x05` and above return `INVALID_FUNCTION_ID` — and `playWaveform` takes only
+  the pattern index, ignoring any further bytes. The fifteen patterns are
+  catalogued in `docs/haptic-waveforms.md`.
 - Control `0x01A0` (task `0x0109`) is the Actions Ring button, which exists on
   no earlier MX model. It is both remappable and divertable.
 - Features `0x19C0`, `0x1701` and `0x00D1` are present on the MX Master 4 and
