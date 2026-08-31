@@ -1,41 +1,72 @@
 # MX Master 4 haptic waveforms
 
-HID++ feature `0x19B0`, function `0x04` (`playWaveform`). The firmware accepts
-indices **0 through 14** and rejects 15 and above with `INVALID_ARGUMENT`.
+HID++ feature `0x19B0`. Undocumented by Logitech; everything here was
+established by probing the hardware, on firmware `RBM 27.03.B0019`.
 
-`getCapabilities` (function `0x00`) returns `00 01 00 3c 08 00 7f ff` on
-firmware `RBM 27.03.B0019`. The meaning of those fields is not established yet,
-so the code keeps the raw bytes rather than pretending to decode them.
+## Function surface
 
-## How each pattern feels
+| Function | Name | Behaviour |
+| --- | --- | --- |
+| `0x00` | getCapabilities | returns `00 01 00 3c 08 00 7f ff` |
+| `0x01` | (status) | returns `01 3c 00 …` |
+| `0x02` | unknown | rejects every argument tried so far with `INVALID_ARGUMENT` |
+| `0x03` | unknown | always returns zeroes |
+| `0x04` | playWaveform | plays a pattern; echoes the index back |
+| `0x05`+ | — | `INVALID_FUNCTION_ID`, so the feature has exactly five functions |
 
-A haptic motor cannot be characterised in software — only someone with a hand
-on the mouse can tell a short tick from a long buzz. Build this table with:
+`playWaveform` accepts indices **0–14** and rejects 15 and above with
+`INVALID_ARGUMENT`.
+
+**It takes only the pattern index.** Sending extra bytes — plausible amplitude
+and duration values drawn from `getCapabilities`, where `7f ff` looks like a
+maximum amplitude and `00 3c` like a duration — produces a byte-identical
+response, so the firmware ignores them. The patterns are fixed; there is no
+amplitude or duration control on this function.
+
+The fields of `getCapabilities` remain undecoded, so the code keeps the raw
+bytes rather than inventing a layout.
+
+## The patterns
+
+Catalogued by hand on an MX Master 4 — a haptic motor cannot be characterised
+in software. Rebuild this table on your own device with:
 
 ```bash
 logitune haptic --catalog -o docs/haptic-waveforms.md
 ```
 
-It plays each pattern in turn, asks you to describe it, and writes the table
-back here.
+| Pattern | Feel | Family |
+| --- | --- | --- |
+| `0` | short | tick |
+| `1` | short | tick |
+| `2` | click | click |
+| `3` | click | click |
+| `4` | soft click | click |
+| `5` | click with light vibration | click |
+| `6` | light vibration | vibration |
+| `7` | multi-click vibration | multi-click |
+| `8` | multi-click vibration | multi-click |
+| `9` | multi-click vibration | multi-click |
+| `10` | multi-click vibration | multi-click |
+| `11` | fast multi-click vibration | multi-click |
+| `12` | slow multi-click vibration | multi-click |
+| `13` | slow musical vibration | extended |
+| `14` | phone-style buzz | extended |
 
-| Pattern | Feel |
-| --- | --- |
-| `0` | *to be catalogued* |
-| `1` | *to be catalogued* |
-| `2` | *to be catalogued* |
-| `3` | *to be catalogued* |
-| `4` | *to be catalogued* |
-| `5` | *to be catalogued* |
-| `6` | *to be catalogued* |
-| `7` | *to be catalogued* |
-| `8` | *to be catalogued* |
-| `9` | *to be catalogued* |
-| `10` | *to be catalogued* |
-| `11` | *to be catalogued* |
-| `12` | *to be catalogued* |
-| `13` | *to be catalogued* |
-| `14` | *to be catalogued* |
+The patterns fall into four families of increasing length, and within the
+multi-click family (`7`–`10`) the differences are subtle enough to be hard to
+tell apart by hand.
 
-Knowing which pattern is which matters for the Actions Ring: a short tick suits
-moving between items, a stronger one suits confirming a selection.
+## Choosing a pattern
+
+For the Actions Ring, and for feedback generally:
+
+| Purpose | Suggested | Why |
+| --- | --- | --- |
+| Moving between menu items | `0` or `1` | short enough to fire repeatedly without becoming noise |
+| Confirming a selection | `2` or `3` | a distinct click reads as "done" |
+| Rejecting an action, hitting a limit | `6` | a buzz reads differently from a click |
+| Notification, mode change | `14` | long enough to notice away from the task |
+
+Avoid the multi-click family for anything that repeats quickly: the patterns
+are long enough to overlap and are hard to tell apart.

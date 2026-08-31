@@ -337,7 +337,7 @@ def _catalogar_waveforms(device: LogitechDevice, args: argparse.Namespace) -> in
         return 0
 
     linhas = [
-        "| Padrão | Sensação |",
+        "| Pattern | Feel |",
         "| --- | --- |",
     ]
     for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
@@ -351,11 +351,11 @@ def _catalogar_waveforms(device: LogitechDevice, args: argparse.Namespace) -> in
         destino = Path(args.output)
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_text(
-            "# Padrões hápticos do MX Master 4\n\n"
-            "Feature HID++ `0x19B0`, função `0x04` (playWaveform). O firmware "
-            "aceita os índices 0 a 14.\n\n"
-            "Descrições levantadas à mão: a percepção de um motor háptico não "
-            "se mede por software.\n\n"
+            "# MX Master 4 haptic waveforms\n\n"
+            "HID++ feature `0x19B0`, function `0x04` (playWaveform). The "
+            "firmware accepts indices 0 to 14.\n\n"
+            "Catalogued by hand: a haptic motor cannot be characterised in "
+            "software.\n\n"
             f"{tabela}\n"
         )
         print()
