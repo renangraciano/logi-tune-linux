@@ -1,0 +1,48 @@
+name: Device support
+description: Report a mouse we have not tested, working or not
+labels: ["device-support"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The stack is generic HID++ 2.0, so devices beyond the MX Master 4 may
+        already work. Reports either way are valuable.
+
+  - type: input
+    id: model
+    attributes:
+      label: Device model
+      placeholder: MX Master 3S
+    validations:
+      required: true
+
+  - type: dropdown
+    id: works
+    attributes:
+      label: Does it work?
+      options:
+        - Fully
+        - Partially
+        - Not detected
+    validations:
+      required: true
+
+  - type: textarea
+    id: features
+    attributes:
+      label: Output of `logitune features`
+      description: The full HID++ feature table of the device.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: buttons
+    attributes:
+      label: Output of `logitune buttons`
+      render: shell
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: What worked and what did not

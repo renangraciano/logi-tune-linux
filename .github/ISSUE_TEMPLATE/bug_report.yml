@@ -1,0 +1,65 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Since this project drives hardware directly,
+        the device details below are usually what makes a bug reproducible.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `logitune dpi 1600`
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `logitune status`
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: connection
+    attributes:
+      label: How the mouse is connected
+      placeholder: Bolt receiver / Unifying / Bluetooth / USB cable
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution and desktop
+      placeholder: Ubuntu 24.04, GNOME 46, X11
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Verbose output
+      description: Output of the failing command with `-v`, which includes the HID++ traffic.
+      render: shell
+
+  - type: checkboxes
+    id: solaar
+    attributes:
+      label: Conflicting software
+      options:
+        - label: Solaar, Piper or logid was NOT running while reproducing this
