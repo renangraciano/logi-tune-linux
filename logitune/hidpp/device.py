@@ -13,6 +13,7 @@ montar o report e casar a resposta.
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 from logitune.hidpp.constants import (
@@ -36,6 +37,17 @@ _ROOT_GET_FEATURE = 0x00
 _FEATURESET_GET_COUNT = 0x00
 #: Função getFeatureID da feature FEATURE_SET.
 _FEATURESET_GET_FEATURE_ID = 0x01
+
+#: Erros que não significam "esta requisição é inválida", e sim "não deu para
+#: atender agora". Acontecem quando outro processo — o nosso daemon, o Solaar
+#: — fala com o dispositivo ao mesmo tempo, e a resposta certa é tentar de
+#: novo, não desistir.
+_TRANSIENT_ERRORS = frozenset(
+    {int(Hidpp20Error.BUSY), int(Hidpp20Error.HARDWARE_ERROR)}
+)
+
+#: Espera antes de repetir uma requisição que esbarrou num erro transitório.
+_RETRY_BACKOFF = 0.05
 
 
 class HidppError(Exception):
@@ -147,11 +159,13 @@ class Hidpp20Device:
 
         return response[2] == feature_index and response[3] == expected_addr
 
-    def _raise_if_error(self, response: bytes, feature_id: int | None, function: int) -> None:
+    def _error_code(self, response: bytes) -> int | None:
+        """Código de erro da resposta, ou ``None`` se ela for bem-sucedida."""
         if response[0] == ReportType.LONG and response[2] == ERROR_FEATURE_INDEX:
-            raise HidppError(response[5], feature_id, function)
+            return response[5]
         if response[0] == ReportType.SHORT and response[2] == ERROR_SUB_ID_HIDPP10:
-            raise HidppError(response[5], feature_id, function)
+            return response[5]
+        return None
 
     def request(
         self,
@@ -177,14 +191,34 @@ class Hidpp20Device:
                 deadline_reads += 1
                 if not self._matches(response, feature_index, function):
                     continue
-                self._raise_if_error(response, feature_id, function)
-                return response[4:]
 
-            last_error = NoResponse(
-                f"Sem resposta para a feature 0x{(feature_id or 0):04X} "
-                f"função 0x{function:02X} (tentativa {attempt + 1})"
-            )
-            logger.debug("%s", last_error)
+                code = self._error_code(response)
+                if code is None:
+                    return response[4:]
+
+                error = HidppError(code, feature_id, function)
+                if code not in _TRANSIENT_ERRORS or attempt >= self.retries:
+                    raise error
+
+                # O dispositivo estava ocupado; espera um instante e repete.
+                logger.debug("%s — repetindo", error)
+                last_error = error
+                time.sleep(_RETRY_BACKOFF * (attempt + 1))
+                break
+            else:
+                last_error = NoResponse(
+                    f"Sem resposta para a feature 0x{(feature_id or 0):04X} "
+                    f"função 0x{function:02X} (tentativa {attempt + 1})"
+                )
+                logger.debug("%s", last_error)
+                continue
+
+            if last_error is None:
+                last_error = NoResponse(
+                    f"Sem resposta para a feature 0x{(feature_id or 0):04X} "
+                    f"função 0x{function:02X} (tentativa {attempt + 1})"
+                )
+                logger.debug("%s", last_error)
 
         raise last_error or NoResponse("Sem resposta do dispositivo")
 

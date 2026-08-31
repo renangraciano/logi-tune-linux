@@ -113,25 +113,54 @@ class LogituneWindow(Adw.ApplicationWindow):
             self._show_not_found()
             return False
         self._device = devices[0]
+        try:
+            self._build_page()
+        except Exception as exc:  # noqa: BLE001 - a janela não pode ficar presa
+            # Sem isto, uma falha aqui deixaria a tela de "procurando" para
+            # sempre: o GLib engole a exceção e nada troca o conteúdo.
+            logger.exception("falha ao montar a interface")
+            self._show_not_found(f"O dispositivo foi encontrado, mas a leitura falhou: {exc}")
+            return False
+
+        # O título só muda depois que a página existe, para que a janela nunca
+        # anuncie um dispositivo que ela não conseguiu mostrar.
         self.set_title(self._device.name)
-        self._build_page()
         GLib.timeout_add_seconds(_BATTERY_REFRESH_S, self._refresh_battery)
         return False
 
     # -- construção da página ------------------------------------------
 
     def _build_page(self) -> None:
+        """Monta a página a partir do estado do dispositivo.
+
+        Cada seção é montada de forma independente: outro processo pode estar
+        falando com o mouse ao mesmo tempo (o nosso daemon, o Solaar) e uma
+        leitura pode falhar. Uma seção que falha é omitida, e o resto da
+        janela continua utilizável — travar tudo por causa de um botão seria
+        desproporcional.
+        """
         device = self._device
         assert device is not None
 
         page = Adw.PreferencesPage()
+        falhas: list[str] = []
+
+        secoes = (
+            ("dispositivo", self._add_device_group),
+            ("ponteiro", self._add_pointer_group),
+            ("rolagem", self._add_scroll_group),
+            ("botões", self._add_buttons_group),
+            ("computadores", self._add_hosts_group),
+        )
+
         self._loading = True
         try:
-            self._add_device_group(page, device)
-            self._add_pointer_group(page, device)
-            self._add_scroll_group(page, device)
-            self._add_buttons_group(page, device)
-            self._add_hosts_group(page, device)
+            for nome, montar in secoes:
+                try:
+                    montar(page, device)
+                except (HidppError, NoResponse, OSError) as exc:
+                    logger.warning("não consegui montar a seção %s: %s", nome, exc)
+                    falhas.append(nome)
         finally:
             self._loading = False
 
@@ -139,8 +168,15 @@ class LogituneWindow(Adw.ApplicationWindow):
         scroller.set_child(page)
         self._toasts.set_child(scroller)
 
+        if falhas:
+            self._toast(
+                f"Não foi possível ler: {', '.join(falhas)}. "
+                f"Atualize para tentar de novo."
+            )
+
     def _add_device_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
         group = Adw.PreferencesGroup(title="Dispositivo")
+        self._battery_row = None
 
         row = Adw.ActionRow(
             title=device.name,
@@ -282,10 +318,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         if device.hosts is None or device.change_host is None:
             return
 
-        try:
-            hosts = device.hosts.list_hosts()
-        except (HidppError, NoResponse):
-            return
+        hosts = device.hosts.list_hosts()
 
         group = Adw.PreferencesGroup(
             title="Computadores",
@@ -409,6 +442,8 @@ class LogituneWindow(Adw.ApplicationWindow):
     def _refresh_battery(self) -> bool:
         device = self._device
         if device is None or device.battery is None:
+            return False
+        if getattr(self, "_battery_row", None) is None:
             return False
         try:
             status = device.battery.get_status()
