@@ -15,7 +15,7 @@ from logitune.hidpp.features.controls import CONTROL_LABELS
 from logitune.hidpp.notifications import NotificationListener
 from logitune.hidpp.features.haptic import MAX_WAVEFORM, MIN_WAVEFORM
 from logitune.hidpp.features.scroll import WheelMode
-from logitune.hidpp.transport import TransportError
+from logitune.hidpp.transport import TransportError, discover_nodes
 
 _OK = "\033[32m"
 _WARN = "\033[33m"
@@ -364,6 +364,122 @@ def _catalogar_waveforms(device: LogitechDevice, args: argparse.Namespace) -> in
     return 0
 
 
+def _diagnostico() -> list[tuple[bool, str, str]]:
+    """Levanta o estado do que o logitune precisa para funcionar.
+
+    Devolve triplas ``(ok, título, detalhe)``. Não abre o dispositivo: é
+    chamado antes da descoberta, para que sirva justamente quando nada
+    funciona.
+    """
+    import os
+    import shutil
+
+    itens: list[tuple[bool, str, str]] = []
+
+    # -- regra udev --------------------------------------------------
+    regra = Path("/etc/udev/rules.d/70-logitune.rules")
+    itens.append(
+        (
+            regra.is_file(),
+            "Regra udev",
+            str(regra) if regra.is_file() else "ausente — rode sudo scripts/install-udev.sh",
+        )
+    )
+
+    # -- acesso ao dispositivo ---------------------------------------
+    nodes = discover_nodes()
+    if not nodes:
+        itens.append((False, "Dispositivo HID++", "nenhum nó hidraw da Logitech encontrado"))
+    else:
+        acessiveis = [n for n in nodes if os.access(n.path, os.R_OK | os.W_OK)]
+        itens.append(
+            (
+                bool(acessiveis),
+                "Acesso ao hidraw",
+                ", ".join(str(n.path) for n in acessiveis)
+                if acessiveis
+                else f"{nodes[0].path} sem permissão — reconecte o receptor",
+            )
+        )
+
+    # -- síntese de teclas -------------------------------------------
+    try:
+        import evdev  # noqa: F401
+
+        tem_evdev = True
+        detalhe_evdev = "python3-evdev disponível"
+    except ImportError:
+        tem_evdev = False
+        detalhe_evdev = "ausente — sudo apt install python3-evdev"
+    itens.append((tem_evdev, "Biblioteca evdev", detalhe_evdev))
+
+    uinput = Path("/dev/uinput")
+    if not uinput.exists():
+        itens.append((False, "Acesso ao uinput", "/dev/uinput não existe"))
+    else:
+        pode = os.access(uinput, os.W_OK)
+        itens.append(
+            (
+                pode,
+                "Acesso ao uinput",
+                "gravável sem root"
+                if pode
+                else "sem permissão — instale a regra udev e faça logout/login",
+            )
+        )
+
+    # -- sessão gráfica ----------------------------------------------
+    sessao = os.environ.get("XDG_SESSION_TYPE", "desconhecida")
+    itens.append(
+        (
+            sessao != "wayland",
+            "Sessão gráfica",
+            f"{sessao}"
+            + ("" if sessao != "wayland" else " — perfis por aplicação ficam desativados"),
+        )
+    )
+
+    try:
+        import Xlib  # noqa: F401
+
+        itens.append((True, "python-xlib", "disponível (perfis por aplicação)"))
+    except ImportError:
+        itens.append((False, "python-xlib", "ausente — sudo apt install python3-xlib"))
+
+    # -- daemon ------------------------------------------------------
+    systemctl = shutil.which("systemctl")
+    if systemctl:
+        import subprocess
+
+        estado = subprocess.run(
+            [systemctl, "--user", "is-active", "logitune-daemon"],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        itens.append((estado == "active", "Daemon", estado or "desconhecido"))
+
+    return itens
+
+
+def cmd_doctor(_device: LogitechDevice | None, _args: argparse.Namespace) -> int:
+    """Mostra o que está pronto e o que falta para o logitune funcionar."""
+    print(_paint("Diagnóstico do logi-tune-linux", _BOLD))
+    print()
+    problemas = 0
+    for ok, titulo, detalhe in _diagnostico():
+        marca = _paint("✓", _OK) if ok else _paint("✗", _WARN)
+        if not ok:
+            problemas += 1
+        print(f"  {marca} {titulo:20s} {_paint(detalhe, _DIM)}")
+
+    print()
+    if problemas:
+        print(_paint(f"{problemas} item(ns) precisam de atenção.", _WARN))
+        return 1
+    print(_paint("Tudo pronto.", _OK))
+    return 0
+
+
 def cmd_haptic(device: LogitechDevice, args: argparse.Namespace) -> int:
     """Toca um padrão de vibração no motor háptico."""
     if device.haptic is None:
@@ -562,6 +678,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_watch)
 
+    sub.add_parser(
+        "doctor", help="verifica permissões, dependências e estado do daemon"
+    ).set_defaults(func=cmd_doctor)
+
     sub.add_parser("features", help="despeja a tabela de features HID++").set_defaults(
         func=cmd_features
     )
@@ -579,6 +699,11 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     handler = getattr(args, "func", cmd_status)
+
+    # O diagnóstico existe justamente para quando o dispositivo não aparece,
+    # então ele roda antes da descoberta e não depende dela.
+    if handler is cmd_doctor:
+        return cmd_doctor(None, args)
 
     try:
         devices = discover_devices()

@@ -12,11 +12,29 @@ changes; they are always called out under **Changed** with a migration note.
 
 ### Added
 
+- `logitune doctor`, reporting udev rule, device access, `/dev/uinput`, evdev,
+  session type and daemon state in one place.
+- The udev rule now also grants `/dev/uinput`, which key synthesis will need,
+  and `scripts/install-udev.sh` installs it.
+
 - Desktop entry and icon, so the graphical interface appears in the
   application menu. Install with `scripts/install-desktop.sh`.
 
 ### Fixed
 
+- **Diverted button actions never fired.** `HidrawTransport.read(0)` computed
+  its deadline and then compared it against a later clock reading, so the
+  remaining time was always negative and it returned `None` even with a report
+  waiting in the queue. The daemon polls with exactly `timeout=0`, so every
+  button action configured since 0.1.0 was silently dead.
+
+  The same defect also spun the daemon: `select` kept reporting the descriptor
+  readable, the read never consumed anything, and the loop turned over without
+  pause. Measured on an idle desktop, CPU use at rest went from roughly 30% of
+  a core to 0.01%.
+- The daemon now drains every queued report per wakeup instead of one. A burst
+  of events could overflow the bounded hidraw queue, and the kernel drops the
+  *oldest* report — which may be the one saying the button was released.
 - The window no longer gets stuck on "searching for the mouse". Building the
   page could raise while another process was talking to the device, and GLib
   swallowed the exception, leaving the placeholder on screen forever. Sections

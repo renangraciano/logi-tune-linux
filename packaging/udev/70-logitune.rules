@@ -1,14 +1,22 @@
-# Acesso não-privilegiado aos dispositivos HID++ da Logitech.
+# Acesso não-privilegiado ao hardware que o logi-tune-linux precisa.
 #
-# Sem esta regra, /dev/hidraw* pertence a root e o logitune precisaria rodar
-# com privilégio. Com ela, o usuário na sessão local (uaccess) recebe acesso
-# via ACL e o daemon roda como serviço de usuário comum.
+# Sem esta regra, /dev/hidraw* e /dev/uinput pertencem ao root e a ferramenta
+# precisaria de privilégio. Com ela, o usuário da sessão gráfica local recebe
+# acesso por ACL (uaccess) e tudo roda como serviço de usuário comum.
 #
 # Instale com:
-#   sudo cp packaging/udev/70-logitune.rules /etc/udev/rules.d/
-#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   scripts/install-udev.sh
+#
+# A ACL do uaccess é concedida no login. Depois de instalar, reconecte o
+# receptor e faça logout/login para que o acesso ao uinput passe a valer.
 
 ACTION=="remove", GOTO="logitune_end"
+
+# /dev/uinput — usado para sintetizar teclas (atalhos, teclas de mídia).
+# Precisa vir antes do desvio de hidraw abaixo, que descarta todo o resto.
+# static_node garante que o nó exista mesmo antes de o módulo ser carregado.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput", GOTO="logitune_end"
+
 SUBSYSTEM!="hidraw", GOTO="logitune_end"
 
 # Receptores e dispositivos Logitech por USB.

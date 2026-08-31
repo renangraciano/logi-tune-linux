@@ -220,14 +220,19 @@ class HidrawTransport:
         logger.debug("-> %s", data.hex(" "))
 
     def read(self, timeout: float = 0.5) -> bytes | None:
-        """Lê o próximo report, ou devolve ``None`` se estourar o tempo."""
+        """Lê o próximo report, ou devolve ``None`` se estourar o tempo.
+
+        Um ``timeout`` de zero significa "veja se há algo agora", e não
+        "desista na hora": o tempo que passa entre calcular o prazo e
+        conferi-lo já bastava para esgotá-lo, de modo que a leitura não
+        devolvia nada nem quando havia um report esperando na fila.
+        """
         fd = self.fileno
-        deadline = time.monotonic() + timeout
+        deadline = time.monotonic() + max(0.0, timeout)
 
         while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                return None
+            # Zero é um prazo legítimo: vale uma checagem não bloqueante.
+            remaining = max(0.0, deadline - time.monotonic())
 
             ready, _, _ = select.select([fd], [], [], remaining)
             if not ready:
@@ -236,6 +241,8 @@ class HidrawTransport:
             try:
                 data = os.read(fd, 64)
             except BlockingIOError:
+                if remaining == 0.0:
+                    return None
                 continue
             except OSError as exc:
                 raise TransportError(exc.errno, f"Falha ao ler de {self.path}: {exc}") from exc
