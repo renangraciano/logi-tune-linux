@@ -10,6 +10,19 @@ changes; they are always called out under **Changed** with a migration note.
 
 ## [Unreleased]
 
+### Added
+
+- Desktop entry and icon, so the graphical interface appears in the
+  application menu. Install with `scripts/install-desktop.sh`.
+
+### Fixed
+
+- The configuration file is written as `0600` inside a `0700` directory, and
+  a warning is issued when weaker permissions are found. It maps buttons to
+  commands the daemon runs, so write access to it is code execution.
+- The application ID and the documentation URLs pointed at the wrong GitHub
+  account, which broke the association between the window and its icon.
+
 ## [0.1.0] - 2026-08-31
 
 First release. Everything below was verified against real hardware: an

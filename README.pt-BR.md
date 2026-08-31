@@ -83,6 +83,10 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 # Instalação. O --system-site-packages deixa o ambiente isolado enxergar o
 # PyGObject que a interface GTK usa, instalado pelo apt no sistema.
 pipx install --system-site-packages .
+
+# Adiciona ao menu de aplicativos. O pipx instala os comandos, mas não a
+# entrada de menu — sem isto a interface gráfica não aparece no lançador.
+scripts/install-desktop.sh
 ```
 
 Desconecte e reconecte o receptor depois de instalar a regra udev.
@@ -96,6 +100,17 @@ Desconecte e reconecte o receptor depois de instalar a regra udev.
 > terminal novo.
 
 ## Uso
+
+Há três formas de usar, e todas compartilham os mesmos ajustes.
+
+**O aplicativo.** Procure por *Logi Tune Linux* no menu de aplicativos, ou rode
+`logitune-gui`. Os controles são aplicados no mouse conforme você os move.
+
+**O daemon**, em segundo plano, reconfigurando o mouse conforme o aplicativo em
+foco. Veja [abaixo](#perfis-por-aplicação).
+
+**A linha de comando**, para automação e para os comandos de engenharia
+reversa:
 
 ```bash
 logitune                      # resumo

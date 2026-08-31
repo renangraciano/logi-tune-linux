@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Cores planas, sem gradiente: é o estilo de ícone do GNOME e evita
+       depender de como cada renderizador trata <defs>. -->
+
+  <!-- Corpo do mouse: estreito em cima, largo e arredondado embaixo. -->
+  <path d="M64 10
+           C89 10 104 29 104 52
+           L104 84
+           C104 107 87 120 64 120
+           C41 120 24 107 24 84
+           L24 52
+           C24 29 39 10 64 10 Z"
+        fill="#3c5bab"/>
+
+  <!-- Metade superior mais clara, sugerindo os dois botões. -->
+  <path d="M64 10
+           C89 10 104 29 104 52
+           L104 56
+           L24 56
+           L24 52
+           C24 29 39 10 64 10 Z"
+        fill="#5578d1"/>
+
+  <!-- Vinco entre os botões esquerdo e direito. -->
+  <path d="M64 12 L64 56" stroke="#2b407a" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Roda de rolagem, em destaque. -->
+  <rect x="56" y="20" width="16" height="28" rx="8" fill="#f5811f"/>
+
+  <!-- Botão do polegar: a marca registrada da linha MX Master. -->
+  <rect x="16" y="58" width="11" height="22" rx="5.5" fill="#2b407a"/>
+</svg>

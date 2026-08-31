@@ -85,6 +85,10 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 # Install. --system-site-packages lets the isolated environment reach the
 # PyGObject that the GTK interface needs, which apt installed system-wide.
 pipx install --system-site-packages .
+
+# Add it to the application menu. pipx installs the commands but not a
+# desktop entry, so without this the GUI never shows up in your launcher.
+scripts/install-desktop.sh
 ```
 
 Unplug and replug the receiver after installing the udev rule.
@@ -97,6 +101,16 @@ Unplug and replug the receiver after installing the udev rule.
 > new shell.
 
 ## Use
+
+There are three ways in, and they share the same settings.
+
+**The app.** Search for *Logi Tune Linux* in your application menu, or run
+`logitune-gui`. Sliders and switches apply to the mouse as you move them.
+
+**The daemon**, running in the background, reconfiguring the mouse per
+application. See [below](#per-application-profiles).
+
+**The command line**, for scripting and for the reverse-engineering commands:
 
 ```bash
 logitune                      # summary
