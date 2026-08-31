@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Transporte HID++ sobre `/dev/hidraw`.
 
 Esta camada não sabe nada sobre features: ela só descobre quais nós hidraw

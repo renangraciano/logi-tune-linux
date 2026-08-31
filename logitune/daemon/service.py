@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """O daemon: aplica perfis conforme a janela em foco e trata botões desviados.
 
 Um único laço cuida das duas fontes de evento. Tanto o X quanto o hidraw

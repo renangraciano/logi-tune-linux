@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Recepção de notificações assíncronas do dispositivo.
 
 Além de responder ao que perguntamos, o dispositivo empurra eventos por conta

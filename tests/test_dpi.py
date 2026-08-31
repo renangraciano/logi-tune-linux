@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Testes da feature de DPI, incluindo a normalização de faixas."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Testes dos perfis: correspondência, combinação e persistência."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Testes do diálogo HID++: descoberta de features, erros e filtragem."""
 
 from __future__ import annotations

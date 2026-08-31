@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Feature 0x2201 — ADJUSTABLE DPI (sensibilidade do ponteiro)."""
 
 from __future__ import annotations

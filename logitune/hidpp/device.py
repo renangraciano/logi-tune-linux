@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Diálogo HID++ 2.0 com um dispositivo Logitech.
 
 Um :class:`Hidpp20Device` representa um periférico alcançável por um nó

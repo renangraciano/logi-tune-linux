@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Constantes do protocolo HID++ (1.0 e 2.0) da Logitech.
 
 Referências: especificação pública HID++ 2.0 da Logitech e o trabalho de

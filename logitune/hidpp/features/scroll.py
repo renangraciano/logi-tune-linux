@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Features de rolagem: 0x2111 SmartShift, 0x2121 HiRes Wheel, 0x2150 Thumb Wheel."""
 
 from __future__ import annotations

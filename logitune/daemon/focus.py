@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Descobre qual janela está em foco.
 
 No X11 dá para saber isso sem custo: o gerenciador de janelas mantém a

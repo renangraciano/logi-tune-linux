@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Feature 0x1B04 — REPROG CONTROLS V4 (remapeamento de botões).
 
 Cada botão físico tem um *Control ID* (CID) fixo e um *Task ID* (TID) que é a

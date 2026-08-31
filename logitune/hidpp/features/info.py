@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Features de identificação: 0x0005 DEVICE NAME e 0x0007 DEVICE FRIENDLY NAME."""
 
 from __future__ import annotations

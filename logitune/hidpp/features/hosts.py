@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Features de múltiplos hosts: 0x1815 HOSTS INFO e 0x1814 CHANGE HOST.
 
 É o Easy-Switch: o mouse guarda até três computadores pareados e alterna

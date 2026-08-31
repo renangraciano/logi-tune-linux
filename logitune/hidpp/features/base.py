@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Base comum para os wrappers de feature HID++."""
 
 from __future__ import annotations

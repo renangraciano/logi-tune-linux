@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Testes da feature háptica (0x19B0)."""
 
 from __future__ import annotations
@@ -74,7 +75,12 @@ class TestComandoHaptic:
         from logitune.cli import cmd_haptic
 
         haptic = self._HapticFalso()
-        args = argparse.Namespace(waveform=None, all=False, delay=0.0)
+        # Espelha todos os campos que o parser define para o subcomando, para
+        # que um argumento novo na CLI apareça aqui como falha, e não como
+        # AttributeError em tempo de execução.
+        args = argparse.Namespace(
+            waveform=None, all=False, catalog=False, output=None, delay=0.0
+        )
         for key, value in kwargs.items():
             setattr(args, key, value)
         cmd_haptic(self._DeviceFalso(haptic), args)

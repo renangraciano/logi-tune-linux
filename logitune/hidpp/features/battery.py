@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Feature 0x1004 — UNIFIED BATTERY."""
 
 from __future__ import annotations

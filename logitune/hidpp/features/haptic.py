@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Feature 0x19B0 — feedback háptico do MX Master 4.
 
 A Logitech não documenta esta feature. O que está aqui veio de sondagem no

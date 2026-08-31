@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Fachada de alto nível: um mouse Logitech e tudo que dá para ajustar nele.
 
 A camada ``logitune.hidpp`` fala protocolo. Esta aqui fala em termos de

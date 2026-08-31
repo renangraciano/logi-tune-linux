@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Um transporte falso que responde como um dispositivo HID++ 2.0.
 
 Permite exercitar a stack inteira sem hardware: os testes descrevem quais

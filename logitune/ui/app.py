@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Aplicação GTK do logi-tune-linux."""
 
 from __future__ import annotations

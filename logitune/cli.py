@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Interface de linha de comando do logi-tune-linux."""
 
 from __future__ import annotations
@@ -6,6 +7,7 @@ import argparse
 import logging
 import sys
 import time
+from pathlib import Path
 
 from logitune.device import LogitechDevice, close_devices, discover_devices
 from logitune.hidpp.device import HidppError, NoResponse
@@ -288,11 +290,88 @@ def cmd_host(device: LogitechDevice, args: argparse.Namespace) -> int:
     return 0
 
 
+def _catalogar_waveforms(device: LogitechDevice, args: argparse.Namespace) -> int:
+    """Toca cada padrão e registra como ele é percebido.
+
+    A sensação de um motor háptico não dá para medir por software: só quem
+    está com a mão no mouse sabe se o padrão foi curto, longo, duplo ou forte.
+    Este modo toca um de cada vez e monta a tabela em Markdown com o que for
+    descrito.
+    """
+    if not sys.stdin.isatty():
+        print(
+            "O catálogo precisa de um terminal interativo para receber as "
+            "descrições.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(_paint("Catálogo de padrões hápticos", _BOLD))
+    print(
+        _paint(
+            "Cada padrão é tocado uma vez. Descreva o que sentiu e tecle Enter.\n"
+            "  'r' toca de novo · Enter vazio pula · 'q' encerra e salva o que houver.",
+            _DIM,
+        )
+    )
+    print()
+
+    descricoes: dict[int, str] = {}
+    for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
+        while True:
+            device.haptic.play(waveform)
+            try:
+                resposta = input(f"  padrão {waveform:2d} → ").strip()
+            except EOFError:
+                resposta = "q"
+            if resposta.casefold() == "r":
+                continue
+            break
+        if resposta.casefold() == "q":
+            break
+        if resposta:
+            descricoes[waveform] = resposta
+
+    if not descricoes:
+        print("\nNada descrito; o catálogo não foi alterado.")
+        return 0
+
+    linhas = [
+        "| Padrão | Sensação |",
+        "| --- | --- |",
+    ]
+    for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
+        linhas.append(f"| `{waveform}` | {descricoes.get(waveform, '—')} |")
+    tabela = "\n".join(linhas)
+
+    print()
+    print(tabela)
+
+    if args.output:
+        destino = Path(args.output)
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_text(
+            "# Padrões hápticos do MX Master 4\n\n"
+            "Feature HID++ `0x19B0`, função `0x04` (playWaveform). O firmware "
+            "aceita os índices 0 a 14.\n\n"
+            "Descrições levantadas à mão: a percepção de um motor háptico não "
+            "se mede por software.\n\n"
+            f"{tabela}\n"
+        )
+        print()
+        print(f"Salvo em {destino}")
+
+    return 0
+
+
 def cmd_haptic(device: LogitechDevice, args: argparse.Namespace) -> int:
     """Toca um padrão de vibração no motor háptico."""
     if device.haptic is None:
         print("Este dispositivo não tem motor háptico.", file=sys.stderr)
         return 1
+
+    if args.catalog:
+        return _catalogar_waveforms(device, args)
 
     # --all vem antes da checagem do argumento posicional: ele dispensa o
     # número do padrão, e testar a ausência do número primeiro engoliria a
@@ -458,6 +537,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"padrão a tocar ({MIN_WAVEFORM}–{MAX_WAVEFORM}); sem valor, mostra as capacidades",
     )
     p.add_argument("--all", action="store_true", help="toca todos os padrões em sequência")
+    p.add_argument(
+        "--catalog",
+        action="store_true",
+        help="toca cada padrão e pergunta como ele é, gerando uma tabela",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        help="arquivo onde salvar o catálogo (use com --catalog)",
+    )
     p.add_argument("--delay", type=float, default=1.0, help="pausa entre padrões, em segundos")
     p.set_defaults(func=cmd_haptic)
 

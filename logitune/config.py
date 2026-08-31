@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Perfis de configuração do logi-tune-linux.
 
 Um perfil descreve como o mouse deve se comportar; regras de correspondência
