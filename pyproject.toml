@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "logi-tune-linux"
+version = "0.1.0"
+description = "Personalização de mouses Logitech no Linux, alternativa ao Logi Options+/Logi Tune"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-2.0-or-later" }
+authors = [{ name = "Renan Graciano de Souza" }]
+keywords = ["logitech", "hidpp", "mx-master", "mouse", "linux"]
+classifiers = [
+  "Environment :: X11 Applications :: GTK",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Hardware",
+]
+
+# A stack HID++ fala direto com /dev/hidraw e não depende de nada externo.
+# A interface gráfica usa PyGObject, que no Ubuntu vem do pacote do sistema
+# (python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1) e por isso não é listada aqui.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+logitune = "logitune.cli:main"
+logitune-daemon = "logitune.daemon.service:main"
+
+[project.gui-scripts]
+logitune-gui = "logitune.ui.app:main"
+
+[tool.setuptools.packages.find]
+include = ["logitune*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,20 @@
+[Unit]
+Description=logi-tune-linux — aplica perfis e trata botões desviados
+Documentation=https://github.com/rsouza/logi-tune-linux
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/logitune-daemon
+Restart=on-failure
+RestartSec=5
+# O daemon fala apenas com /dev/hidraw e com a sessão gráfica do usuário.
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/logitune
+
+[Install]
+WantedBy=graphical-session.target

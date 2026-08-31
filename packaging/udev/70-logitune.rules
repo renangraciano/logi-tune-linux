@@ -1,0 +1,25 @@
+# Acesso não-privilegiado aos dispositivos HID++ da Logitech.
+#
+# Sem esta regra, /dev/hidraw* pertence a root e o logitune precisaria rodar
+# com privilégio. Com ela, o usuário na sessão local (uaccess) recebe acesso
+# via ACL e o daemon roda como serviço de usuário comum.
+#
+# Instale com:
+#   sudo cp packaging/udev/70-logitune.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+
+ACTION=="remove", GOTO="logitune_end"
+SUBSYSTEM!="hidraw", GOTO="logitune_end"
+
+# Receptores e dispositivos Logitech por USB.
+ATTRS{idVendor}=="046d", GOTO="logitune_apply"
+
+# Dispositivos Logitech conectados por Bluetooth.
+KERNELS=="0005:046D:*", GOTO="logitune_apply"
+
+GOTO="logitune_end"
+
+LABEL="logitune_apply"
+TAG+="uaccess"
+
+LABEL="logitune_end"
