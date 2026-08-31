@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # As actions são código de terceiros que roda com acesso ao repositório;
+  # manter as versões em dia é parte da higiene de cadeia de suprimentos.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"

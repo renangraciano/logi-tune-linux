@@ -290,6 +290,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Configuração de exemplo escrita em {path}")
         return 0
 
+    aviso = config_module.check_permissions()
+    if aviso:
+        logger.warning("%s", aviso)
+
     config = config_module.load()
 
     devices = discover_devices()

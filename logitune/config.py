@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 CONFIG_VERSION = 1
 
+#: Só o dono lê e escreve a configuração: ela define comandos que o daemon
+#: executa, então permissão de grupo ou de outros vira execução de código.
+FILE_MODE = 0o600
+DIR_MODE = 0o700
+
 
 def config_dir() -> Path:
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
@@ -181,11 +186,40 @@ class Config:
     def save(self, path: Path | None = None) -> Path:
         target = path or config_path()
         target.parent.mkdir(parents=True, exist_ok=True)
+
+        # Este arquivo decide quais comandos o daemon executa, então quem
+        # puder escrevê-lo executa código com os privilégios do usuário.
+        # Trancamos o diretório e o arquivo para o dono.
+        try:
+            target.parent.chmod(DIR_MODE)
+        except OSError as exc:
+            logger.warning("não consegui restringir %s: %s", target.parent, exc)
+
         # Escrita atômica: um daemon lendo nunca vê um arquivo pela metade.
         temporary = target.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n")
+        temporary.chmod(FILE_MODE)
         temporary.replace(target)
         return target
+
+
+def check_permissions(path: Path | None = None) -> str | None:
+    """Avisa se a configuração está exposta a outros usuários.
+
+    Devolve a mensagem de aviso, ou ``None`` se as permissões estão certas.
+    """
+    target = path or config_path()
+    try:
+        mode = target.stat().st_mode & 0o777
+    except OSError:
+        return None
+    if mode & 0o077:
+        return (
+            f"{target} está acessível a outros usuários (modo {mode:04o}). "
+            f"Como este arquivo define comandos que o daemon executa, "
+            f"corrija com: chmod {FILE_MODE:o} {target}"
+        )
+    return None
 
 
 def load(path: Path | None = None) -> Config:
@@ -193,6 +227,10 @@ def load(path: Path | None = None) -> Config:
     target = path or config_path()
     if not target.is_file():
         return Config()
+
+    aviso = check_permissions(target)
+    if aviso:
+        logger.warning("%s", aviso)
     try:
         return Config.from_dict(json.loads(target.read_text()))
     except (OSError, json.JSONDecodeError) as exc:

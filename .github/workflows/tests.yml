@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+# Estes fluxos só leem o repositório.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

@@ -110,3 +110,44 @@ class TestConfig:
         assert destino.is_file()
         # O arquivo temporário não pode sobrar no diretório.
         assert not list(tmp_path.glob("*.tmp"))
+
+
+class TestPermissoes:
+    """A configuração define comandos que o daemon executa, então quem puder
+    escrevê-la executa código como o usuário. As permissões são um limite de
+    segurança, não um detalhe."""
+
+    def test_arquivo_salvo_e_privado(self, tmp_path):
+        destino = tmp_path / "logitune" / "config.json"
+        example_config().save(destino)
+        modo = destino.stat().st_mode & 0o777
+        assert modo == 0o600, f"config gravada como {modo:04o}"
+
+    def test_diretorio_salvo_e_privado(self, tmp_path):
+        destino = tmp_path / "logitune" / "config.json"
+        example_config().save(destino)
+        modo = destino.parent.stat().st_mode & 0o777
+        assert modo == 0o700, f"diretório criado como {modo:04o}"
+
+    def test_sobrescrever_nao_afrouxa_as_permissoes(self, tmp_path):
+        destino = tmp_path / "logitune" / "config.json"
+        example_config().save(destino)
+        destino.chmod(0o644)
+        example_config().save(destino)
+        assert destino.stat().st_mode & 0o777 == 0o600
+
+    def test_permissao_frouxa_e_detectada(self, tmp_path):
+        from logitune.config import check_permissions
+
+        destino = tmp_path / "config.json"
+        example_config().save(destino)
+        assert check_permissions(destino) is None
+
+        destino.chmod(0o664)
+        aviso = check_permissions(destino)
+        assert aviso is not None and "chmod" in aviso
+
+    def test_arquivo_ausente_nao_gera_aviso(self, tmp_path):
+        from logitune.config import check_permissions
+
+        assert check_permissions(tmp_path / "nao-existe.json") is None

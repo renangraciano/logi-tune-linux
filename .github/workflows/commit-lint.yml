@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+# Estes fluxos só leem o repositório.
+permissions:
+  contents: read
+
 jobs:
   title:
     runs-on: ubuntu-latest
