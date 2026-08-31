@@ -10,6 +10,7 @@ from logitune.device import LogitechDevice, close_devices, discover_devices
 from logitune.hidpp.device import HidppError, NoResponse
 from logitune.hidpp.features.controls import CONTROL_LABELS
 from logitune.hidpp.notifications import NotificationListener
+from logitune.hidpp.features.haptic import MAX_WAVEFORM, MIN_WAVEFORM
 from logitune.hidpp.features.scroll import WheelMode
 from logitune.hidpp.transport import TransportError
 
@@ -286,6 +287,41 @@ def cmd_host(device: LogitechDevice, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_haptic(device: LogitechDevice, args: argparse.Namespace) -> int:
+    """Toca um padrão de vibração no motor háptico."""
+    if device.haptic is None:
+        print("Este dispositivo não tem motor háptico.", file=sys.stderr)
+        return 1
+
+    if args.waveform is None:
+        print(f"capacidades (bytes crus): {device.haptic.get_capabilities()}")
+        print(
+            _paint(
+                f"padrões disponíveis: {MIN_WAVEFORM}–{MAX_WAVEFORM} · "
+                f"use 'logitune haptic <n>' para sentir cada um",
+                _DIM,
+            )
+        )
+        return 0
+
+    if args.all:
+        import time
+
+        for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
+            print(f"  padrão {waveform}…", flush=True)
+            device.haptic.play(waveform)
+            time.sleep(args.delay)
+        return 0
+
+    try:
+        played = device.haptic.play(args.waveform)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"Tocou o padrão {played}.")
+    return 0
+
+
 def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
     """Desvia botões e mostra os eventos que o dispositivo manda.
 
@@ -412,6 +448,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("host", help="troca o mouse para outro computador")
     p.add_argument("channel", type=int, choices=(1, 2, 3), help="canal de destino")
     p.set_defaults(func=cmd_host)
+
+    p = sub.add_parser("haptic", help="toca um padrão de vibração (MX Master 4)")
+    p.add_argument(
+        "waveform",
+        nargs="?",
+        type=int,
+        help=f"padrão a tocar ({MIN_WAVEFORM}–{MAX_WAVEFORM}); sem valor, mostra as capacidades",
+    )
+    p.add_argument("--all", action="store_true", help="toca todos os padrões em sequência")
+    p.add_argument("--delay", type=float, default=1.0, help="pausa entre padrões, em segundos")
+    p.set_defaults(func=cmd_haptic)
 
     p = sub.add_parser("watch", help="desvia botões e mostra os eventos recebidos")
     p.add_argument(

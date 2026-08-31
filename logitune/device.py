@@ -17,6 +17,7 @@ from logitune.hidpp.device import Hidpp20Device, HidppError, NoResponse
 from logitune.hidpp.features.battery import UnifiedBattery
 from logitune.hidpp.features.controls import ReprogControls
 from logitune.hidpp.features.dpi import AdjustableDpi
+from logitune.hidpp.features.haptic import Haptic
 from logitune.hidpp.features.hosts import ChangeHost, HostsInfo
 from logitune.hidpp.features.info import DeviceFriendlyName, DeviceName, DeviceType
 from logitune.hidpp.features.scroll import HiResWheel, SmartShift, ThumbWheel
@@ -110,6 +111,10 @@ class LogitechDevice:
     @cached_property
     def controls(self) -> ReprogControls | None:
         return self._feature(ReprogControls)
+
+    @cached_property
+    def haptic(self) -> Haptic | None:
+        return self._feature(Haptic)
 
     @cached_property
     def hosts(self) -> HostsInfo | None:

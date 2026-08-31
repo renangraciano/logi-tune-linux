@@ -72,10 +72,12 @@ class FeatureID(enum.IntEnum):
     XY_STATS = 0x2250
     WHEEL_STATS = 0x2251
 
-    # --- Não documentadas, presentes no MX Master 4 ---
-    #: Suspeita: relacionada ao Actions Ring / haptics.
-    MX4_UNKNOWN_19B0 = 0x19B0
-    #: Suspeita: relacionada ao Actions Ring / haptics.
+    # --- Não documentadas pela Logitech, presentes no MX Master 4 ---
+    #: Motor háptico. Confirmada por sondagem: a função 0x04 toca um dos 15
+    #: padrões de vibração gravados no firmware.
+    MX4_HAPTIC = 0x19B0
+    #: Ainda sem função conhecida. Responde às funções 0x00–0x02 e devolve
+    #: dados que variam entre leituras, o que sugere leitura de sensor.
     MX4_UNKNOWN_19C0 = 0x19C0
     MX4_UNKNOWN_1701 = 0x1701
     MX4_UNKNOWN_00D1 = 0x00D1
