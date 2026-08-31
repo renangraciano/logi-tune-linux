@@ -26,6 +26,10 @@ from logitune.hidpp.notifications import NotificationListener
 
 logger = logging.getLogger(__name__)
 
+#: Teto de relatórios processados por acordada do ``select``. Existe para que
+#: um dispositivo com muito tráfego não impeça o laço de olhar o foco.
+_MAX_REPORTS_PER_CYCLE = 256
+
 
 def apply_settings(device: LogitechDevice, settings: Settings) -> list[str]:
     """Aplica o que o perfil pede. Devolve a lista do que mudou de fato."""
@@ -204,18 +208,31 @@ class Daemon:
             logger.error("não consegui executar %r: %s", command, exc)
 
     def _handle_device_event(self) -> None:
-        notification = self.listener.poll(timeout=0)
-        if notification is None:
-            return
-        event = self.listener.as_button_event(notification)
-        if event is None:
-            logger.debug("notificação: %s", notification)
-            return
-        for cid in event.just_pressed:
-            command = self._actions.get(cid)
-            if command:
-                logger.info("botão 0x%04X → %s", cid, command)
-                self._run_command(command)
+        """Processa tudo que o dispositivo enfileirou desde a última acordada.
+
+        Um relatório por ciclo não basta. A fila do hidraw é limitada e, ao
+        transbordar, o kernel descarta o relatório mais antigo — que pode ser
+        justamente o que avisa que o botão foi solto, deixando o estado preso
+        em "pressionado". O limite por ciclo evita que um dispositivo tagarela
+        monopolize o laço e atrase a leitura do foco de janela.
+        """
+        for _ in range(_MAX_REPORTS_PER_CYCLE):
+            notification = self.listener.poll(timeout=0)
+            if notification is None:
+                return
+
+            event = self.listener.as_button_event(notification)
+            if event is None:
+                logger.debug("notificação: %s", notification)
+                continue
+
+            for cid in event.just_pressed:
+                command = self._actions.get(cid)
+                if command:
+                    logger.info("botão 0x%04X → %s", cid, command)
+                    self._run_command(command)
+
+        logger.debug("limite de relatórios por ciclo atingido")
 
     # -- laço ----------------------------------------------------------
 

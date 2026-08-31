@@ -78,9 +78,8 @@ solved. What is left is drawing the radial menu — see the [roadmap](#roadmap).
 # Dependencies (python3-xlib is only for per-application profiles)
 sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib pipx
 
-# Device access without root
-sudo cp packaging/udev/70-logitune.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
+# Device access without root (mouse + /dev/uinput for key synthesis)
+sudo scripts/install-udev.sh
 
 # Install. --system-site-packages lets the isolated environment reach the
 # PyGObject that the GTK interface needs, which apt installed system-wide.
@@ -122,6 +121,7 @@ logitune button back --remap 0x0052
 logitune hosts                # paired computers
 logitune host 2               # move the mouse to channel 2
 logitune haptic 3             # play one vibration pattern
+logitune doctor               # check permissions and dependencies
 logitune-gui                  # graphical interface
 ```
 
