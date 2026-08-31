@@ -36,6 +36,7 @@ class FakeTransport:
         responses: dict[tuple[int, int], bytes] | None = None,
         *,
         device_index: int = 1,
+        transient_failures: dict[tuple[int, int], tuple[int, int]] | None = None,
     ) -> None:
         self.path = Path("/dev/hidraw-fake")
         self.features = dict(features)
@@ -43,6 +44,9 @@ class FakeTransport:
         self.device_index = device_index
         #: Tudo que foi escrito, para os testes verificarem o que saiu.
         self.written: list[bytes] = []
+        #: Simula um dispositivo ocupado: mapeia (feature, função) para
+        #: (código de erro, quantas vezes falhar antes de responder direito).
+        self.transient_failures = dict(transient_failures or {})
         self._pending: deque[bytes] = deque()
         self._index_to_feature = {index: fid for fid, index in self.features.items()}
 
@@ -102,6 +106,12 @@ class FakeTransport:
                 index = params[0]
                 target = self._index_to_feature.get(index, 0)
                 return self._reply(request, target.to_bytes(2, "big") + bytes([0x00, 0x00]))
+
+        pendente = self.transient_failures.get((feature_id, function))
+        if pendente and pendente[1] > 0:
+            code, restantes = pendente
+            self.transient_failures[(feature_id, function)] = (code, restantes - 1)
+            return self._error(request, code)
 
         payload = self.responses.get((feature_id, function))
         if payload is None:

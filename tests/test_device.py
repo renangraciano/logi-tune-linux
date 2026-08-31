@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from logitune.hidpp.constants import SOFTWARE_ID
+from logitune.hidpp.constants import SOFTWARE_ID, Hidpp20Error
 from logitune.hidpp.device import (
     FeatureNotSupported,
     Hidpp20Device,
@@ -90,3 +90,40 @@ def test_tabela_de_features_enumera_tudo():
     tabela = device.feature_table()
     ids = {info.feature_id for info in tabela}
     assert {0x0000, 0x0001, 0x1004, 0x2201} <= ids
+
+
+class TestErrosTransitorios:
+    """Outro processo falando com o mesmo mouse — o nosso daemon, o Solaar —
+    faz o dispositivo responder BUSY ou HARDWARE_ERROR. Isso é "agora não",
+    não "requisição inválida", e precisa de nova tentativa."""
+
+    def _device(self, code: int, vezes: int, retries: int = 2):
+        transport = FakeTransport(
+            features={0x0000: 0, 0x0001: 1, 0x1B04: 2},
+            responses={(0x1B04, 0x02): bytes([0x00, 0x53, 0x00, 0x00, 0x53])},
+            transient_failures={(0x1B04, 0x02): (code, vezes)},
+        )
+        return Hidpp20Device(transport, device_index=1, retries=retries), transport
+
+    def test_hardware_error_e_retentado(self):
+        # Foi exatamente isto que travou a interface: o daemon aplicou um
+        # perfil enquanto a janela lia os botões.
+        device, _ = self._device(int(Hidpp20Error.HARDWARE_ERROR), vezes=1)
+        assert device.call(0x1B04, 0x02)[1] == 0x53
+
+    def test_busy_e_retentado(self):
+        device, _ = self._device(int(Hidpp20Error.BUSY), vezes=2)
+        assert device.call(0x1B04, 0x02)[1] == 0x53
+
+    def test_erro_persistente_acaba_propagando(self):
+        device, _ = self._device(int(Hidpp20Error.HARDWARE_ERROR), vezes=99)
+        with pytest.raises(HidppError):
+            device.call(0x1B04, 0x02)
+
+    def test_erro_permanente_nao_e_retentado(self):
+        # INVALID_ARGUMENT não melhora com insistência: falhar de imediato.
+        device, transport = self._device(int(Hidpp20Error.INVALID_ARGUMENT), vezes=1)
+        with pytest.raises(HidppError):
+            device.call(0x1B04, 0x02)
+        chamadas = [w for w in transport.written if w[2] == 2]
+        assert len(chamadas) == 1, "não deveria ter repetido"

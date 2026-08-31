@@ -12,5 +12,5 @@ Categories=Settings;HardwareSettings;GTK;
 Keywords=mouse;logitech;mx;master;dpi;scroll;pointer;hid;
 Keywords[pt_BR]=mouse;logitech;mx;master;dpi;rolagem;ponteiro;
 # Casa a janela GTK com esta entrada, para que o ícone certo apareça no dock.
-StartupWMClass=io.github.renangraciano.LogiTuneLinux
+StartupWMClass=logitune-gui
 StartupNotify=true

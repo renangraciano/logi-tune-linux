@@ -17,6 +17,15 @@ changes; they are always called out under **Changed** with a migration note.
 
 ### Fixed
 
+- The window no longer gets stuck on "searching for the mouse". Building the
+  page could raise while another process was talking to the device, and GLib
+  swallowed the exception, leaving the placeholder on screen forever. Sections
+  are now built independently and a failure is reported instead of hiding.
+- Transient HID++ errors (`BUSY`, `HARDWARE_ERROR`) are retried. They mean the
+  device could not answer right now, which happens whenever the daemon or
+  Solaar talks to it at the same moment, and are not a reason to give up.
+- `StartupWMClass` now matches the actual window class, so the dock shows the
+  application icon rather than a generic one.
 - The configuration file is written as `0600` inside a `0700` directory, and
   a warning is issued when weaker permissions are found. It maps buttons to
   commands the daemon runs, so write access to it is code execution.
