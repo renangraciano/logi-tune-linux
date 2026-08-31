@@ -75,17 +75,26 @@ solved. What is left is drawing the radial menu — see the [roadmap](#roadmap).
 ## Install
 
 ```bash
-# Dependencies (the last one is only for per-application profiles)
-sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib
+# Dependencies (python3-xlib is only for per-application profiles)
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib pipx
 
 # Device access without root
 sudo cp packaging/udev/70-logitune.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
-pip install --user .
+# Install. --system-site-packages lets the isolated environment reach the
+# PyGObject that the GTK interface needs, which apt installed system-wide.
+pipx install --system-site-packages .
 ```
 
 Unplug and replug the receiver after installing the udev rule.
+
+> **Why pipx?** Ubuntu 24.04 and other recent distributions mark the system
+> Python as externally managed ([PEP 668](https://peps.python.org/pep-0668/)),
+> so `pip install --user` refuses to run. pipx gives each application its own
+> environment and puts `logitune`, `logitune-gui` and `logitune-daemon` on your
+> `PATH`. If `~/.local/bin` is not in `PATH`, run `pipx ensurepath` and open a
+> new shell.
 
 ## Use
 

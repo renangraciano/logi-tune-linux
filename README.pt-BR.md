@@ -73,17 +73,27 @@ resolvidas. Falta desenhar o menu radial — veja o [roadmap](#roadmap).
 ## Instalação
 
 ```bash
-# Dependências (a última só é necessária para perfis por aplicação)
-sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib
+# Dependências (python3-xlib só é necessário para perfis por aplicação)
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib pipx
 
 # Acesso ao dispositivo sem root
 sudo cp packaging/udev/70-logitune.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
-pip install --user .
+# Instalação. O --system-site-packages deixa o ambiente isolado enxergar o
+# PyGObject que a interface GTK usa, instalado pelo apt no sistema.
+pipx install --system-site-packages .
 ```
 
 Desconecte e reconecte o receptor depois de instalar a regra udev.
+
+> **Por que pipx?** O Ubuntu 24.04 e outras distribuições recentes marcam o
+> Python do sistema como gerenciado externamente
+> ([PEP 668](https://peps.python.org/pep-0668/)), então `pip install --user` se
+> recusa a rodar. O pipx dá um ambiente próprio a cada aplicação e coloca
+> `logitune`, `logitune-gui` e `logitune-daemon` no seu `PATH`. Se
+> `~/.local/bin` não estiver no `PATH`, rode `pipx ensurepath` e abra um
+> terminal novo.
 
 ## Uso
 
