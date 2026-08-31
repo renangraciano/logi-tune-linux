@@ -48,3 +48,45 @@ def test_padrao_fora_da_faixa_e_recusado_antes_de_escrever(waveform):
 def test_faixa_valida_e_aceita(waveform):
     haptic, _ = _haptic()
     haptic.play(waveform)
+
+
+class TestComandoHaptic:
+    """A CLI precisa tocar de fato, e não cair no ramo informativo."""
+
+    class _HapticFalso:
+        def __init__(self) -> None:
+            self.tocados: list[int] = []
+
+        def play(self, waveform: int) -> int:
+            self.tocados.append(waveform)
+            return waveform
+
+        def get_capabilities(self):
+            return "00 01"
+
+    class _DeviceFalso:
+        def __init__(self, haptic) -> None:
+            self.haptic = haptic
+
+    def _rodar(self, **kwargs) -> list[int]:
+        import argparse
+
+        from logitune.cli import cmd_haptic
+
+        haptic = self._HapticFalso()
+        args = argparse.Namespace(waveform=None, all=False, delay=0.0)
+        for key, value in kwargs.items():
+            setattr(args, key, value)
+        cmd_haptic(self._DeviceFalso(haptic), args)
+        return haptic.tocados
+
+    def test_all_toca_todos_os_padroes(self):
+        # Regressão: --all sem número posicional caía no ramo que só imprime
+        # as capacidades, e nada era tocado.
+        assert self._rodar(all=True) == list(range(MIN_WAVEFORM, MAX_WAVEFORM + 1))
+
+    def test_numero_toca_apenas_aquele_padrao(self):
+        assert self._rodar(waveform=5) == [5]
+
+    def test_sem_argumento_nenhum_nao_toca_nada(self):
+        assert self._rodar() == []

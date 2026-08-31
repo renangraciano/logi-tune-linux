@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 
 from logitune.device import LogitechDevice, close_devices, discover_devices
 from logitune.hidpp.device import HidppError, NoResponse
@@ -293,24 +294,26 @@ def cmd_haptic(device: LogitechDevice, args: argparse.Namespace) -> int:
         print("Este dispositivo não tem motor háptico.", file=sys.stderr)
         return 1
 
+    # --all vem antes da checagem do argumento posicional: ele dispensa o
+    # número do padrão, e testar a ausência do número primeiro engoliria a
+    # opção sem tocar nada.
+    if args.all:
+        for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
+            print(f"  padrão {waveform}…", flush=True)
+            device.haptic.play(waveform)
+            time.sleep(args.delay)
+        print("Tocou os 15 padrões.")
+        return 0
+
     if args.waveform is None:
         print(f"capacidades (bytes crus): {device.haptic.get_capabilities()}")
         print(
             _paint(
                 f"padrões disponíveis: {MIN_WAVEFORM}–{MAX_WAVEFORM} · "
-                f"use 'logitune haptic <n>' para sentir cada um",
+                f"'logitune haptic <n>' toca um, 'logitune haptic --all' toca todos",
                 _DIM,
             )
         )
-        return 0
-
-    if args.all:
-        import time
-
-        for waveform in range(MIN_WAVEFORM, MAX_WAVEFORM + 1):
-            print(f"  padrão {waveform}…", flush=True)
-            device.haptic.play(waveform)
-            time.sleep(args.delay)
         return 0
 
     try:
@@ -354,8 +357,6 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
         nomes = ", ".join(controls[c].label for c in desviados) or "nenhum"
         print(_paint(f"Escutando eventos. Botões desviados: {nomes}", _BOLD))
         print(_paint("Pressione os botões no mouse. Ctrl+C encerra.", _DIM))
-
-        import time
 
         limite = time.monotonic() + args.seconds if args.seconds else None
         while limite is None or time.monotonic() < limite:
