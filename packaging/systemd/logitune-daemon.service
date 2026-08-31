@@ -1,6 +1,6 @@
 [Unit]
 Description=logi-tune-linux — aplica perfis e trata botões desviados
-Documentation=https://github.com/rsouza/logi-tune-linux
+Documentation=https://github.com/renangraciano/logi-tune-linux
 PartOf=graphical-session.target
 After=graphical-session.target
 

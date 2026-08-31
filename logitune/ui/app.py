@@ -15,7 +15,7 @@ from gi.repository import Adw, Gio  # noqa: E402
 
 from logitune.ui.window import LogituneWindow  # noqa: E402
 
-APP_ID = "io.github.rsouza.LogiTuneLinux"
+APP_ID = "io.github.renangraciano.LogiTuneLinux"
 
 
 class LogituneApplication(Adw.Application):
