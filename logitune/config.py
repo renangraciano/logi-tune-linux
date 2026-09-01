@@ -312,8 +312,13 @@ def example_config() -> Config:
             dpi=2800,
             smartshift=32,
             invert_thumb=True,
-            # "logitune actions" lista tudo que dá para pôr aqui.
-            bindings={"0x0056": "browser.reopen_tab"},
+            # Um botão, uma ação: é o que quase todo mundo quer, e o que a
+            # configuração de exemplo deve ensinar. Gestos existem, mas são
+            # opcionais — veja o README. "logitune actions" lista o catálogo.
+            bindings={
+                "0x0056": "browser.reopen_tab",
+                "0x01A0": "system.overview",
+            },
         ),
         profiles=[
             Profile(
