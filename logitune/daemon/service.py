@@ -112,6 +112,8 @@ class Daemon:
         self.listener = NotificationListener(device.hidpp)
         self.state = DaemonState()
         self._running = True
+        #: Marcado pelo SIGHUP; o laço recarrega na volta do select.
+        self._reload_requested = False
         #: Botões que desviamos e precisamos restaurar ao sair.
         self._diverted: list[int] = []
         #: Botões que disparam no clique, sem gesto: CID para ação.
@@ -128,6 +130,31 @@ class Daemon:
 
     def stop(self, *_args) -> None:
         self._running = False
+
+    def request_reload(self, *_args) -> None:
+        """Anota que a configuração mudou. Chamado de dentro do SIGHUP.
+
+        Um handler de sinal roda em cima de qualquer ponto do programa, então
+        aqui só se marca uma flag: reler o arquivo e falar com o dispositivo
+        acontece no laço, onde o estado é consistente.
+        """
+        self._reload_requested = True
+
+    def _reload_config(self) -> None:
+        """Relê a configuração e reaplica o perfil ativo."""
+        self._reload_requested = False
+        try:
+            self.config = config_module.load()
+        except Exception as exc:  # noqa: BLE001 - config ruim não derruba o daemon
+            logger.error("não consegui recarregar a configuração: %s", exc)
+            return
+
+        logger.info("configuração recarregada")
+        self._recognizer.thresholds = self.config.gesture_thresholds()
+        # Forçar a reavaliação: sem isto o perfil de mesmo nome seria
+        # considerado já aplicado e nada mudaria.
+        self.state.profile_name = ""
+        self._apply_for_window(self.focus.current())
 
     def _resolve_bindings(
         self, settings: Settings
@@ -160,8 +187,17 @@ class Daemon:
                 logger.info("%s → %s (%s)", onde, acao.label, disponivel.reason)
             return acao
 
+        gestos_ligados = self.config.gestures_enabled
+
         for cid, binding in settings.binding_pairs():
             if binding.gestures:
+                if not gestos_ligados:
+                    # Desligado quer dizer desligado: o botão volta à função
+                    # de fábrica em vez de disparar um gesto pela metade.
+                    logger.info(
+                        "botão 0x%04X tem gestos, mas eles estão desligados", cid
+                    )
+                    continue
                 # Um botão com gestos precisa do reconhecedor, então o clique
                 # direto não se aplica nem quando há um "press" configurado.
                 preparadas = {
@@ -356,6 +392,9 @@ class Daemon:
 
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
+        # SIGHUP recarrega: é como a interface avisa que a configuração mudou,
+        # sem precisar derrubar o serviço e perder o estado dos botões.
+        signal.signal(signal.SIGHUP, self.request_reload)
         # As ações que abrem programas são disparadas e esquecidas: nunca
         # esperamos por elas. O módulo subprocess recolhe os filhos anteriores
         # só quando um novo Popen é criado, então sem isto o último comando
@@ -387,6 +426,9 @@ class Daemon:
                 except OSError as exc:
                     logger.error("o dispositivo desapareceu: %s", exc)
                     return 1
+
+                if self._reload_requested:
+                    self._reload_config()
 
                 self._dispatch_gestures(self._recognizer.tick())
 

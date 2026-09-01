@@ -7,6 +7,9 @@ After=graphical-session.target
 [Service]
 Type=simple
 ExecStart=%h/.local/bin/logitune-daemon
+# Recarrega a configuração sem derrubar o serviço, o que preservaria o
+# estado dos botões desviados. É como a interface aplica uma mudança.
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
 # O daemon fala apenas com /dev/hidraw e com a sessão gráfica do usuário.
