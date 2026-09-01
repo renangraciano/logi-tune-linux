@@ -45,7 +45,7 @@ English, so that changelogs and version bumps can be derived automatically.
 | `ci` | workflows | none |
 | `chore` | anything else | none |
 
-**Scopes**: `hidpp`, `actions`, `cli`, `ui`, `daemon`, `config`, `packaging`, `docs`, `ci`.
+**Scopes**: `hidpp`, `actions`, `cli`, `ui`, `daemon`, `config`, `i18n`, `packaging`, `docs`, `ci`.
 
 A commit that breaks compatibility carries `!` after the type/scope **and** a
 `BREAKING CHANGE:` footer explaining the migration.

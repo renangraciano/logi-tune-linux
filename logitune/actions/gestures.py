@@ -42,6 +42,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+from logitune.i18n import _
+
 
 class Gesture(enum.Enum):
     """Os gestos que um botão pode distinguir."""
@@ -57,13 +59,13 @@ class Gesture(enum.Enum):
     @property
     def label(self) -> str:
         return {
-            Gesture.TAP: "toque",
-            Gesture.DOUBLE_TAP: "toque duplo",
-            Gesture.HOLD: "segurar",
-            Gesture.DRAG_UP: "arrastar para cima",
-            Gesture.DRAG_DOWN: "arrastar para baixo",
-            Gesture.DRAG_LEFT: "arrastar para a esquerda",
-            Gesture.DRAG_RIGHT: "arrastar para a direita",
+            Gesture.TAP: _("tap"),
+            Gesture.DOUBLE_TAP: _("double tap"),
+            Gesture.HOLD: _("hold"),
+            Gesture.DRAG_UP: _("drag up"),
+            Gesture.DRAG_DOWN: _("drag down"),
+            Gesture.DRAG_LEFT: _("drag left"),
+            Gesture.DRAG_RIGHT: _("drag right"),
         }[self]
 
     @property

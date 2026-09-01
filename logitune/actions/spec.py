@@ -19,6 +19,8 @@ import enum
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
+from logitune.i18n import _
+
 if TYPE_CHECKING:  # pragma: no cover - só para anotação
     from logitune.device import LogitechDevice
 
@@ -51,15 +53,15 @@ class Category(enum.Enum):
     @property
     def label(self) -> str:
         return {
-            Category.SISTEMA: "Sistema",
-            Category.JANELAS: "Janelas e áreas de trabalho",
-            Category.MIDIA: "Mídia",
-            Category.REUNIAO: "Controles de reunião",
-            Category.EDICAO: "Edição",
-            Category.NAVEGADOR: "Navegador",
-            Category.MOUSE: "Mouse",
-            Category.APLICATIVO: "Abrir aplicativo",
-            Category.PERSONALIZADO: "Personalizado",
+            Category.SISTEMA: _("System"),
+            Category.JANELAS: _("Windows and workspaces"),
+            Category.MIDIA: _("Media"),
+            Category.REUNIAO: _("Meeting controls"),
+            Category.EDICAO: _("Editing"),
+            Category.NAVEGADOR: _("Browser"),
+            Category.MOUSE: _("Mouse"),
+            Category.APLICATIVO: _("Open an application"),
+            Category.PERSONALIZADO: _("Custom"),
         }[self]
 
     @property
