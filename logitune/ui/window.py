@@ -18,6 +18,7 @@ from logitune.config import Match, Profile, Settings  # noqa: E402
 from logitune.i18n import _  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
+from logitune.ui.desktop import ACCEL_PROFILES, DesktopMouseSettings  # noqa: E402
 from logitune.ui.mouse_view import MouseHotspotView  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
@@ -176,6 +177,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             ("gestos", self._add_gestures_group),
             ("roda do polegar", self._add_wheel_group),
             ("computadores", self._add_hosts_group),
+            ("sistema", self._add_system_group),
         )
 
         self._loading = True
@@ -883,6 +885,84 @@ class LogituneWindow(Adw.ApplicationWindow):
             lambda: self._store.update(
                 lambda c: c.wheel.__setitem__("switcher_idle_ms", int(row.get_value()))
             ),
+        )
+
+    def _add_system_group(self, page: Adw.PreferencesPage, _device: LogitechDevice) -> None:
+        """Ajustes que são da sessão, não do mouse.
+
+        Ficam por último e com a diferença dita na descrição: eles valem para
+        todo apontador, não entram nos perfis, e continuam valendo depois que
+        este programa sair.
+        """
+        self._desktop = DesktopMouseSettings()
+        if not self._desktop.available:
+            return
+
+        group = Adw.PreferencesGroup(
+            title=_("System"),
+            description=_(
+                "Session settings, not the mouse's. They apply to every "
+                "pointer including the touchpad, are the same in every "
+                "profile, and stay after this program is gone."
+            ),
+        )
+
+        canhoto = Adw.SwitchRow(
+            title=_("Left-handed"),
+            subtitle=_("Swaps the left and right buttons"),
+            active=self._desktop.left_handed,
+        )
+        canhoto.connect("notify::active", self._on_left_handed_changed)
+        group.add(canhoto)
+
+        velocidade = Adw.SpinRow.new_with_range(-1.0, 1.0, 0.05)
+        velocidade.set_digits(2)
+        velocidade.set_title(_("Pointer speed"))
+        velocidade.set_subtitle(
+            _("How far the pointer travels, applied by the session. Separate "
+              "from the DPI above, which the sensor itself uses")
+        )
+        velocidade.set_value(self._desktop.speed)
+        velocidade.connect("notify::value", self._on_pointer_speed_changed)
+        group.add(velocidade)
+
+        aceleracao = Adw.ComboRow(title=_("Acceleration"))
+        modelo = Gtk.StringList()
+        for _valor, rotulo in ACCEL_PROFILES:
+            modelo.append(_(rotulo))
+        aceleracao.set_model(modelo)
+        atual = self._desktop.accel_profile
+        aceleracao.set_selected(
+            next((i for i, (v, _r) in enumerate(ACCEL_PROFILES) if v == atual), 0)
+        )
+        aceleracao.connect("notify::selected", self._on_accel_profile_changed)
+        group.add(aceleracao)
+
+        page.add(group)
+
+    def _on_left_handed_changed(self, row: Adw.SwitchRow, _param) -> None:
+        if self._loading:
+            return
+        self._guarded(
+            lambda: setattr(self._desktop, "left_handed", row.get_active()),
+            _("swap the buttons"),
+        )
+
+    def _on_pointer_speed_changed(self, row: Adw.SpinRow, _param) -> None:
+        if self._loading:
+            return
+        self._debounce(
+            "pointer_speed",
+            _DEBOUNCE_MS,
+            lambda: setattr(self._desktop, "speed", row.get_value()),
+        )
+
+    def _on_accel_profile_changed(self, row: Adw.ComboRow, _param) -> None:
+        if self._loading:
+            return
+        self._guarded(
+            lambda: setattr(self._desktop, "accel_profile", ACCEL_PROFILES[row.get_selected()][0]),
+            _("change the acceleration"),
         )
 
     def _add_hosts_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:

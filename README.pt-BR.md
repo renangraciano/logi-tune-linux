@@ -60,6 +60,7 @@ firmware `RBM 27.03.B0019`) por receptor Bolt, Ubuntu 24.04.4, GNOME 46, X11.
 | ✅ | **53 ações para atribuir a botões** | — |
 | ✅ | Gestos num botão segurado (opcional) | `0x1B04` |
 | ✅ | Calar o motor háptico com bateria baixa | `0x1004` |
+| ✅ | Ajustes de ponteiro do sistema (GNOME) | — |
 | 🚧 | Menu radial do Actions Ring | `0x01A0` |
 
 ## Três coisas que você não encontra em outro lugar
@@ -328,6 +329,25 @@ A roda só é desviada quando tem algo atribuído. Desviá-la à toa custa a rol
 horizontal e não devolve nada — que é exatamente o estado que o Solaar deixa
 para trás, e o que o `logitune doctor` agora distingue de uma roda desviada de
 propósito.
+
+### Ajustes do sistema
+
+Parte do que o Logi Options+ oferece não é do mouse, e sim da área de trabalho.
+Em *Sistema* o aplicativo edita as chaves do GNOME direto:
+
+| Ajuste | Chave do `gsettings` |
+| --- | --- |
+| Canhoto | `org.gnome.desktop.peripherals.mouse left-handed` |
+| Velocidade do ponteiro | `…mouse speed` |
+| Aceleração | `…mouse accel-profile` |
+
+Estes **não** são ajustes do dispositivo, e a seção diz isso. Valem para todo
+apontador, inclusive o touchpad, são os mesmos em qualquer perfil, e continuam
+depois que este programa for desinstalado. A velocidade do ponteiro em especial
+é outra coisa que o DPI: o DPI mora no mouse e viaja com ele, esta não.
+
+A seção some por completo em ambientes sem o esquema do GNOME, onde não haveria
+onde escrever.
 
 ### Economia de energia
 

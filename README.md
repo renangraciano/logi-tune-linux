@@ -61,6 +61,7 @@ GNOME 46, X11.
 | ✅ | **53 actions to bind buttons to** | — |
 | ✅ | Gestures on a held button (opt-in) | `0x1B04` |
 | ✅ | Silence the haptic motor on low battery | `0x1004` |
+| ✅ | System pointer settings (GNOME) | — |
 | 🚧 | Actions Ring radial menu | `0x01A0` |
 
 ## Three things you will not find elsewhere
@@ -370,6 +371,26 @@ apart from a wheel that is diverted on purpose.
 Measure your own with `logitune watch <cid> --raw-xy`, which prints a
 per-button summary of duration, displacement and sample count.
 
+### System settings
+
+Some of what Logi Options+ offers is not the mouse's at all but the desktop's.
+Under *System* the app edits the GNOME keys directly:
+
+| Setting | `gsettings` key |
+| --- | --- |
+| Left-handed | `org.gnome.desktop.peripherals.mouse left-handed` |
+| Pointer speed | `…mouse speed` |
+| Acceleration | `…mouse accel-profile` |
+
+These are **not** device settings and the section says so. They apply to every
+pointer including the touchpad, are the same in every profile, and stay behind
+after this program is uninstalled. Pointer speed in particular is a different
+thing from the DPI above: the DPI lives in the mouse and travels with it, this
+does not.
+
+The section is hidden entirely on desktops without the GNOME schema, where
+there would be nothing to write to.
+
 ### Power saving
 
 The haptic motor is the hungriest part after the sensor. Under *Power saving*
@@ -446,8 +467,6 @@ roughly in the order they matter.
 
 **Visible gaps against Logi Options+**
 
-- [#11](https://github.com/renangraciano/logi-tune-linux/issues/11) System
-  settings: left-handed buttons, pointer acceleration
 - [#12](https://github.com/renangraciano/logi-tune-linux/issues/12) Turn
   haptics off on low battery
 - [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) `.deb` and
