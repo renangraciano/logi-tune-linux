@@ -174,6 +174,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             ("rolagem", self._add_scroll_group),
             ("botões", self._add_buttons_group),
             ("gestos", self._add_gestures_group),
+            ("roda do polegar", self._add_wheel_group),
             ("computadores", self._add_hosts_group),
         )
 
@@ -691,6 +692,35 @@ class LogituneWindow(Adw.ApplicationWindow):
         switch.connect("notify::active", self._on_gestures_toggled)
         group.add(switch)
 
+        # Os limiares descrevem a mão de quem usa. Ficavam só no JSON, o que
+        # é o mesmo que não existirem para quem não abre o arquivo — e são
+        # justamente o que se quer ajustar quando um gesto dispara sozinho.
+        limiares = config.gesture_thresholds()
+
+        segurar = Adw.SpinRow.new_with_range(200, 2000, 50)
+        segurar.set_title(_("Hold starts after"))
+        segurar.set_subtitle(_("Below this, a press counts as a tap"))
+        segurar.set_value(limiares.hold_ms)
+        segurar.connect("notify::value", self._on_threshold_changed, "hold_ms")
+        group.add(segurar)
+
+        duplo = Adw.SpinRow.new_with_range(150, 1000, 50)
+        duplo.set_title(_("Double tap window"))
+        duplo.set_subtitle(_("How long a second tap still counts as a double"))
+        duplo.set_value(limiares.double_tap_ms)
+        duplo.connect("notify::value", self._on_threshold_changed, "double_tap_ms")
+        group.add(duplo)
+
+        arrasto = Adw.SpinRow.new_with_range(50, 800, 25)
+        arrasto.set_title(_("Drag threshold"))
+        arrasto.set_subtitle(
+            _("Sensor units before a press becomes a drag. Raise it if a "
+              "plain click sometimes turns into one")
+        )
+        arrasto.set_value(limiares.drag_units)
+        arrasto.connect("notify::value", self._on_threshold_changed, "drag_units")
+        group.add(arrasto)
+
         configurados = sum(
             1 for _, b in config.default.binding_pairs() if b.gestures
         )
@@ -721,6 +751,105 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         self._guarded(
             aplicar, _("switch gestures on") if ligado else _("switch gestures off")
+        )
+
+    def _on_threshold_changed(self, row: Adw.SpinRow, _param, chave: str) -> None:
+        if self._loading:
+            return
+        self._debounce(
+            f"gesture_{chave}",
+            _DEBOUNCE_MS,
+            lambda: self._store.update(
+                lambda c: c.gestures.__setitem__(chave, int(row.get_value()))
+            ),
+        )
+
+    #: As opções da roda, na ordem em que aparecem. O rótulo é traduzido na
+    #: montagem; o valor é o que vai para o config.json.
+    _WHEEL_CHOICES = (
+        (None, "Horizontal scrolling"),
+        ("window.switch_apps", "Switch applications"),
+        ("volume", "Volume"),
+    )
+
+    def _add_wheel_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
+        """A roda do polegar: o que ela faz e quanto espera para confirmar."""
+        if device.thumbwheel is None:
+            return
+
+        config = self._store.load()
+        atual = self._edited_settings(config).thumbwheel
+        if isinstance(atual, dict):
+            atual = "volume"
+
+        group = Adw.PreferencesGroup(
+            title=_("Thumb wheel"),
+            description=_(
+                "Rolling it can switch applications instead of scrolling "
+                "sideways. The wheel only stops scrolling when you give it "
+                "something else to do."
+            ),
+        )
+
+        combo = Adw.ComboRow(title=_("What rolling does"))
+        modelo = Gtk.StringList()
+        for _valor, rotulo in self._WHEEL_CHOICES:
+            modelo.append(_(rotulo))
+        combo.set_model(modelo)
+        combo.set_selected(
+            next(
+                (i for i, (v, _r) in enumerate(self._WHEEL_CHOICES) if v == atual), 0
+            )
+        )
+        combo.connect("notify::selected", self._on_wheel_changed)
+        group.add(combo)
+
+        atraso = Adw.SpinRow.new_with_range(100, 5000, 50)
+        atraso.set_title(_("Confirm after"))
+        atraso.set_subtitle(
+            _("How long the switcher waits, once the wheel stops, before "
+              "bringing the chosen window forward")
+        )
+        atraso.set_value(config.switcher_idle_ms)
+        atraso.set_sensitive(atual == "window.switch_apps")
+        atraso.connect("notify::value", self._on_switcher_delay_changed)
+        group.add(atraso)
+        self._switcher_delay_row = atraso
+
+        page.add(group)
+
+    def _on_wheel_changed(self, row: Adw.ComboRow, _param) -> None:
+        if self._loading:
+            return
+        valor = self._WHEEL_CHOICES[row.get_selected()][0]
+
+        def aplicar(config) -> None:
+            ajustes = self._edited_settings(config)
+            if valor is None:
+                ajustes.thumbwheel = None
+            elif valor == "volume":
+                ajustes.thumbwheel = {
+                    "up": "media.volume_up",
+                    "down": "media.volume_down",
+                }
+            else:
+                ajustes.thumbwheel = valor
+
+        self._guarded(lambda: self._store.update(aplicar), _("change the thumb wheel"))
+        linha = getattr(self, "_switcher_delay_row", None)
+        if linha is not None:
+            linha.set_sensitive(valor == "window.switch_apps")
+
+    def _on_switcher_delay_changed(self, row: Adw.SpinRow, _param) -> None:
+        if self._loading:
+            return
+        # Um valor por passo do spin viraria uma escrita por clique na seta.
+        self._debounce(
+            "switcher_delay",
+            _DEBOUNCE_MS,
+            lambda: self._store.update(
+                lambda c: c.wheel.__setitem__("switcher_idle_ms", int(row.get_value()))
+            ),
         )
 
     def _add_hosts_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:

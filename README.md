@@ -272,6 +272,30 @@ register as holds:
 "gestures": { "enabled": true, "drag_units": 200, "drag_samples": 3, "hold_ms": 500, "double_tap_ms": 400 }
 ```
 
+The app has these under *Gestures*, so the file is optional.
+
+### The thumb wheel
+
+Rolling it can switch applications instead of scrolling sideways — the feature
+Logi Options+ calls App Switcher. Pick it under *Thumb wheel* in the app, or:
+
+```json
+"default": { "thumbwheel": "window.switch_apps" },
+"wheel": { "switcher_idle_ms": 800 }
+```
+
+`switcher_idle_ms` is how long the switcher waits, once the wheel stops, before
+bringing the chosen window forward. One action per direction works too:
+
+```json
+"thumbwheel": { "up": "media.volume_up", "down": "media.volume_down" }
+```
+
+The wheel is only diverted when something is bound to it. Diverting it
+otherwise costs you horizontal scrolling and gives nothing back — which is
+exactly the state Solaar leaves behind, and what `logitune doctor` now tells
+apart from a wheel that is diverted on purpose.
+
 Measure your own with `logitune watch <cid> --raw-xy`, which prints a
 per-button summary of duration, displacement and sample count.
 
@@ -339,8 +363,6 @@ roughly in the order they matter.
 
 **Visible gaps against Logi Options+**
 
-- [#10](https://github.com/renangraciano/logi-tune-linux/issues/10) Thumb wheel
-  as an application switcher
 - [#11](https://github.com/renangraciano/logi-tune-linux/issues/11) System
   settings: left-handed buttons, pointer acceleration
 - [#12](https://github.com/renangraciano/logi-tune-linux/issues/12) Turn

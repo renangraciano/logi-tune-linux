@@ -541,10 +541,12 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
         itens.append((True, _("configuration"), str(config_module.config_path())))
 
     # -- estado do dispositivo ---------------------------------------
-    # A roda do polegar desviada é o legado clássico de quem usou o Solaar:
-    # ele liga o desvio (thumb-scroll-mode) e, desinstalado sem restaurar,
-    # deixa o flag gravado no firmware. A roda simplesmente para de rolar, e
-    # nada na tela explica por quê — então explicamos aqui.
+    # A roda do polegar desviada tem dois significados opostos, e confundi-los
+    # seria pior que não checar. Desviada com alguém consumindo é o alternador
+    # de aplicativos funcionando. Desviada com ninguém lendo é o legado do
+    # Solaar: ele liga o desvio (thumb-scroll-mode) e, desinstalado sem
+    # restaurar, deixa o flag gravado no firmware — e a roda para de rolar sem
+    # que nada na tela explique por quê.
     try:
         from logitune.device import close_devices, discover_devices
 
@@ -556,18 +558,20 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
             roda = dispositivos[0].thumbwheel
             if roda is not None:
                 desviada = roda.get_state().diverted
-                itens.append(
-                    (
-                        not desviada,
-                        _("thumb wheel"),
-                        _("scrolling normally")
-                        if not desviada
-                        else _(
-                            "diverted — will not scroll; fix with "
-                            "'logitune scroll --no-thumb-divert'"
+                configurada = not config_module.load().default.wheel_binding().is_empty
+                if not desviada:
+                    detalhe, ok = _("scrolling normally"), True
+                elif configurada:
+                    detalhe, ok = _("diverted, driving its configured action"), True
+                else:
+                    detalhe, ok = (
+                        _(
+                            "diverted with nothing reading it — will not scroll; "
+                            "fix with 'logitune scroll --no-thumb-divert'"
                         ),
+                        False,
                     )
-                )
+                itens.append((ok, _("thumb wheel"), detalhe))
         except (HidppError, NoResponse, OSError):
             pass
         finally:
@@ -753,9 +757,24 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
         alvos = [cid for cid, c in controls.items() if c.is_divertable]
 
     desviados: list[int] = []
+    #: A roda do polegar é outra feature (0x2150) e restaura-se à parte.
+    roda_desviada = False
     listener = NotificationListener(device.hidpp)
 
     try:
+        if args.thumb:
+            if device.thumbwheel is None:
+                print(_("This device has no thumb wheel."), file=sys.stderr)
+                return 1
+            device.thumbwheel.set_state(diverted=True)
+            roda_desviada = True
+            print(
+                _paint(
+                    _("Thumb wheel diverted: turn it to see the events."),
+                    _DIM,
+                )
+            )
+
         if args.passive:
             # Não mexe no desvio: serve para observar o que o daemon já
             # configurou, sem brigar com ele pelo estado do dispositivo.
@@ -800,6 +819,18 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
         while limite is None or time.monotonic() < limite:
             notification = listener.poll(timeout=0.5)
             if notification is None:
+                continue
+
+            giro = listener.as_thumbwheel_event(notification)
+            if giro is not None:
+                # Mostra o cru junto do lido: o formato deste evento não é
+                # documentado, e conferir a leitura contra os bytes é a única
+                # forma de saber que ela está certa.
+                print(
+                    f"  {_paint('⟳ roda polegar', _OK)} delta={giro.delta:+d} "
+                    f"touch={giro.touch} prox={giro.proximity}  "
+                    f"{_paint('cru: ' + notification.data[:6].hex(' '), _DIM)}"
+                )
                 continue
 
             movimento = listener.as_raw_movement(notification)
@@ -847,6 +878,16 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
                 device.controls.set_reporting(cid, diverted=False, raw_xy=False)
             except (HidppError, NoResponse) as exc:
                 print(_("Warning: 0x{:04X} stayed diverted: {}").format(cid, exc), file=sys.stderr)
+        if roda_desviada:
+            try:
+                device.thumbwheel.set_state(diverted=False)
+            except (HidppError, NoResponse) as exc:
+                print(
+                    _("Warning: the thumb wheel stayed diverted: {}").format(exc),
+                    file=sys.stderr,
+                )
+            else:
+                print(_paint(_("Thumb wheel restored."), _DIM))
         if desviados:
             print(_paint(_("Buttons restored."), _DIM))
         if args.raw_xy:
@@ -1068,6 +1109,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--raw-xy",
         action="store_true",
         help=_("measure movement while a button is held, to calibrate gestures"),
+    )
+    p.add_argument(
+        "--thumb",
+        action="store_true",
+        help=_("divert the thumb wheel and show its rotation events"),
     )
     p.set_defaults(func=cmd_watch)
 

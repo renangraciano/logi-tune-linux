@@ -148,3 +148,51 @@ class TestNotificacaoDuranteRequisicao:
         for _ in range(200):
             device._stashed.append(b"\x11\x01\x01\x00")
         assert len(device._stashed) <= 64
+
+
+class TestRodaDoPolegar:
+    """Bytes medidos num MX Master 4 (RBM 27.03.B0019), não deduzidos.
+
+    A primeira leitura tomava o byte 3 por bandeiras e inventava toque e
+    proximidade a partir de um carimbo de tempo — o mesmo dispositivo cujo
+    getInfo diz não ter nenhum dos dois sensores.
+    """
+
+    from logitune.hidpp.constants import FeatureID as _F
+
+    AMOSTRAS = [
+        ("ff f8 00 07 02 02", -8, "ACTIVE", 7),
+        ("00 01 00 00 01 02", +1, "START", 0),
+        ("00 00 00 00 03 00", 0, "STOP", 0),
+        ("00 00 00 00 00 02", 0, "INACTIVE", 0),
+        ("00 18 00 05 02 02", +24, "ACTIVE", 5),
+        ("00 02 00 17 02 02", +2, "ACTIVE", 23),
+        ("ff ff 00 0c 02 02", -1, "ACTIVE", 12),
+    ]
+
+    @pytest.mark.parametrize("cru, delta, status, ts", AMOSTRAS)
+    def test_leitura_dos_bytes_reais(self, listener, cru, delta, status, ts):
+        from logitune.hidpp.constants import FeatureID
+
+        evento = listener.as_thumbwheel_event(
+            _notificacao(0x00, bytes.fromhex(cru), feature_id=int(FeatureID.THUMB_WHEEL))
+        )
+        assert evento is not None
+        assert evento.delta == delta
+        assert evento.status.name == status
+        assert evento.timestamp == ts
+
+    def test_o_sinal_separa_os_sentidos(self, listener):
+        """Ler sem sinal transformaria um giro em 65528 no sentido oposto."""
+        from logitune.hidpp.constants import FeatureID
+
+        subindo = listener.as_thumbwheel_event(
+            _notificacao(0x00, bytes.fromhex("00 08 00 07 02 02"), feature_id=int(FeatureID.THUMB_WHEEL))
+        )
+        descendo = listener.as_thumbwheel_event(
+            _notificacao(0x00, bytes.fromhex("ff f8 00 07 02 02"), feature_id=int(FeatureID.THUMB_WHEEL))
+        )
+        assert subindo.delta == -descendo.delta == 8
+
+    def test_ignora_outra_feature(self, listener):
+        assert listener.as_thumbwheel_event(_notificacao(_MOVIMENTO, b"\x00\x08")) is None

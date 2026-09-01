@@ -21,6 +21,7 @@ from logitune.actions.gestures import GestureThresholds
 from logitune.actions.binding import (
     BindingError,
     ButtonBinding,
+    WheelBinding,
     command_binding,
     merge_raw,
 )
@@ -66,6 +67,9 @@ class Settings:
     #: Ações do catálogo por botão, de CID para id de ação, objeto com
     #: parâmetros ou mapa de gestos. Ver :mod:`logitune.actions.binding`.
     bindings: dict[str, Any] = field(default_factory=dict)
+    #: O que a roda do polegar faz. Vazio deixa a rolagem horizontal do
+    #: sistema em paz, que é o comportamento de fábrica.
+    thumbwheel: Any = None
 
     def merged_with(self, base: Settings) -> Settings:
         """Combina com um perfil base, deixando este ter a última palavra."""
@@ -77,7 +81,18 @@ class Settings:
         # Os vínculos precisam de merge por gesto: um perfil que sobrescreve
         # só o "tap" não pode apagar os outros seis gestos do mesmo botão.
         merged.bindings = merge_raw(base.bindings, self.bindings)
+        merged.thumbwheel = (
+            self.thumbwheel if self.thumbwheel is not None else base.thumbwheel
+        )
         return merged
+
+    def wheel_binding(self) -> WheelBinding:
+        """O que a roda do polegar faz neste perfil."""
+        try:
+            return WheelBinding.parse(self.thumbwheel)
+        except BindingError as exc:
+            logger.warning("roda do polegar com configuração inválida: %s", exc)
+            return WheelBinding()
 
     def action_pairs(self) -> list[tuple[int, str]]:
         """As ações antigas como pares ``(CID, comando)``."""
@@ -182,6 +197,31 @@ class Config:
         """
         return bool(self.gestures.get("enabled", True))
 
+    #: Ajustes da roda do polegar que descrevem a mão, não o aplicativo: o
+    #: tempo até o alternador confirmar a escolha. Fica fora dos perfis pelo
+    #: mesmo motivo que os limiares de gesto.
+    wheel: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def switcher_idle_ms(self) -> int:
+        """Quanto tempo sem girar até o alternador confirmar.
+
+        Curto demais confirma no meio de um giro lento; longo demais atrasa a
+        janela que se quis trazer para a frente.
+        """
+        from logitune.actions.switcher import DEFAULT_IDLE_MS
+
+        bruto = self.wheel.get("switcher_idle_ms", DEFAULT_IDLE_MS)
+        try:
+            valor = int(bruto)
+        except (TypeError, ValueError):
+            logger.warning("switcher_idle_ms inválido ignorado: %r", bruto)
+            return DEFAULT_IDLE_MS
+        if not 100 <= valor <= 5000:
+            logger.warning("switcher_idle_ms fora da faixa (100–5000): %s", valor)
+            return DEFAULT_IDLE_MS
+        return valor
+
     def gesture_thresholds(self) -> GestureThresholds:
         """Os limiares configurados, caindo no padrão medido para o resto."""
         campos = {f for f in GestureThresholds.__dataclass_fields__}
@@ -225,6 +265,7 @@ class Config:
             "default": asdict(self.default),
             "profiles": [asdict(p) for p in self.profiles],
             "gestures": dict(self.gestures),
+            "wheel": dict(self.wheel),
         }
 
     @classmethod
@@ -261,6 +302,7 @@ class Config:
             default=build_settings(data.get("default", {})),
             profiles=profiles,
             gestures=dict(data.get("gestures", {}) or {}),
+            wheel=dict(data.get("wheel", {}) or {}),
         )
 
     def save(self, path: Path | None = None) -> Path:

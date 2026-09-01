@@ -183,6 +183,8 @@ class Keyboard:
     def __init__(self, name: str = "logi-tune-linux") -> None:
         self.name = name
         self._device = None
+        #: Teclas que estão pressionadas agora, para poder soltá-las.
+        self._held: set[int] = set()
 
     def _open(self):
         if self._device is not None:
@@ -217,8 +219,40 @@ class Keyboard:
             device.write(ecodes.EV_KEY, code, 0)
         device.syn()
 
+    def press(self, code: int) -> None:
+        """Pressiona uma tecla e a deixa pressionada.
+
+        Existe para o alternador de aplicativos, que só funciona com o Alt
+        segurado: soltá-lo entre um Tab e outro fecharia a janela do
+        alternador e recomeçaria a lista a cada giro da roda.
+        """
+        ecodes = _ecodes()
+        device = self._open()
+        device.write(ecodes.EV_KEY, code, 1)
+        device.syn()
+        self._held.add(code)
+
+    def release(self, code: int) -> None:
+        ecodes = _ecodes()
+        if code not in self._held:
+            return
+        device = self._open()
+        device.write(ecodes.EV_KEY, code, 0)
+        device.syn()
+        self._held.discard(code)
+
+    def release_all(self) -> None:
+        """Solta o que ficou pressionado.
+
+        Uma tecla segurada sobrevive ao processo que a segurou: se o daemon
+        morrer com o Alt em baixo, a sessão fica com o Alt em baixo.
+        """
+        for code in list(self._held):
+            self.release(code)
+
     def close(self) -> None:
         if self._device is not None:
+            self.release_all()
             self._device.close()
             self._device = None
 
