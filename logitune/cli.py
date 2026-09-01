@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+from logitune.actions import Binding, Category, default_registry, resolve
+from logitune.actions.spec import ActionError, UnknownAction
 from logitune.device import LogitechDevice, close_devices, discover_devices
 from logitune.hidpp.device import HidppError, NoResponse
 from logitune.hidpp.features.controls import CONTROL_LABELS
@@ -603,6 +605,111 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_param(texto: str) -> tuple[str, object]:
+    """Lê ``chave=valor`` da linha de comando.
+
+    Números viram inteiros e listas separadas por vírgula viram listas, que é
+    o que ``mouse.dpi_cycle values=1600,2800,4000`` precisa.
+    """
+    chave, sep, valor = texto.partition("=")
+    if not sep:
+        raise ValueError(f"parâmetro sem valor: {texto!r} (use chave=valor)")
+
+    def converter(bruto: str) -> object:
+        try:
+            return int(bruto, 0)
+        except ValueError:
+            return bruto
+
+    if "," in valor:
+        return chave.strip(), [converter(p.strip()) for p in valor.split(",") if p.strip()]
+    return chave.strip(), converter(valor)
+
+
+def cmd_actions(device: LogitechDevice | None, args: argparse.Namespace) -> int:
+    """Lista o catálogo de ações, ou executa uma para testar."""
+    registry = default_registry()
+
+    if args.run:
+        try:
+            params = dict(_parse_param(p) for p in args.param)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        try:
+            acao = resolve(Binding(action=args.run, params=params))
+        except UnknownAction as exc:
+            print(str(exc), file=sys.stderr)
+            # Um id errado quase sempre acerta a categoria e erra o verbo
+            # ("browser.voltar"), então vale procurar de novo só pelo prefixo.
+            similares = registry.search(args.run) or registry.search(args.run.split(".")[0])
+            if similares:
+                ids = ", ".join(s.id for s in similares[:5])
+                print(f"Você quis dizer: {ids}?", file=sys.stderr)
+            return 1
+
+        disponivel = acao.available()
+        if not disponivel.ok:
+            print(_paint(f"{acao.label}: {disponivel.reason}", _WARN), file=sys.stderr)
+            return 1
+        try:
+            acao.run(device)
+        except ActionError as exc:
+            print(f"A ação falhou: {exc}", file=sys.stderr)
+            return 1
+        print(f"Executou {_paint(acao.label, _BOLD)}.")
+        return 0
+
+    if args.filter:
+        encontradas = registry.search(args.filter)
+        if not encontradas:
+            print(f"Nenhuma ação casa com {args.filter!r}.", file=sys.stderr)
+            return 1
+        grupos: dict[Category, list] = {}
+        for spec in encontradas:
+            grupos.setdefault(spec.category, []).append(spec)
+        grupos = {c: grupos[c] for c in sorted(grupos, key=lambda c: c.order)}
+    else:
+        grupos = registry.by_category()
+
+    destacadas = {spec.id for spec in registry.recommended()}
+    indisponiveis = 0
+
+    for categoria, specs in grupos.items():
+        print()
+        print(_paint(categoria.label, _BOLD))
+        for spec in specs:
+            disponivel = spec.available()
+            if not disponivel.ok:
+                indisponiveis += 1
+            marca = _paint("✓", _OK) if disponivel.ok else _paint("✗", _WARN)
+            estrela = _paint("★", _OK) if spec.id in destacadas else " "
+            linha = f"  {marca} {estrela} {spec.id:26s} {spec.label}"
+            if spec.shortcut:
+                linha += _paint(f"  [{spec.shortcut}]", _DIM)
+            if spec.parameters:
+                nomes = ", ".join(p.name for p in spec.parameters)
+                linha += _paint(f"  ({nomes})", _DIM)
+            print(linha)
+            if not disponivel.ok:
+                print(f"        {_paint(disponivel.reason, _WARN)}")
+
+    print()
+    total = sum(len(s) for s in grupos.values())
+    resumo = f"{total} ações"
+    if indisponiveis:
+        resumo += f", {indisponiveis} indisponível(is) nesta sessão"
+    print(_paint(resumo + "  ·  ★ recomendadas", _DIM))
+    print(
+        _paint(
+            "Atribua com \"bindings\" em ~/.config/logitune/config.json; "
+            "teste com 'logitune actions --run <id>'.",
+            _DIM,
+        )
+    )
+    return 0
+
+
 def cmd_features(device: LogitechDevice, _args: argparse.Namespace) -> int:
     """Despeja a tabela de features — usado para engenharia reversa."""
     table = device.hidpp.feature_table()
@@ -700,6 +807,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.set_defaults(func=cmd_watch)
 
+    p = sub.add_parser("actions", help="lista o catálogo de ações dos botões")
+    p.add_argument("filter", nargs="?", help="mostra só as ações que casam com o trecho")
+    p.add_argument("--run", metavar="ID", help="executa uma ação para testá-la")
+    p.add_argument(
+        "--param",
+        action="append",
+        default=[],
+        metavar="CHAVE=VALOR",
+        help="parâmetro da ação; pode repetir",
+    )
+    p.set_defaults(func=cmd_actions)
+
     sub.add_parser(
         "doctor", help="verifica permissões, dependências e estado do daemon"
     ).set_defaults(func=cmd_doctor)
@@ -723,9 +842,12 @@ def main(argv: list[str] | None = None) -> int:
     handler = getattr(args, "func", cmd_status)
 
     # O diagnóstico existe justamente para quando o dispositivo não aparece,
-    # então ele roda antes da descoberta e não depende dela.
+    # então ele roda antes da descoberta e não depende dela. Listar o catálogo
+    # também não depende: só executar uma ação é que pode precisar do mouse.
     if handler is cmd_doctor:
         return cmd_doctor(None, args)
+    if handler is cmd_actions and not args.run:
+        return cmd_actions(None, args)
 
     try:
         devices = discover_devices()
