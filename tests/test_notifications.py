@@ -87,3 +87,64 @@ class TestEventosDeBotao:
 
     def test_movimento_nao_e_lido_como_botao(self, listener):
         assert listener.as_button_event(_notificacao(_MOVIMENTO, b"\x00\x0a\x00\x05")) is None
+
+
+class TestNotificacaoDuranteRequisicao:
+    """Uma requisição não pode engolir as notificações que chegam junto.
+
+    É o cenário do retorno háptico: ao cruzar o limiar de um arrasto o daemon
+    manda o mouse vibrar, e enquanto espera essa resposta continuam chegando
+    eventos de movimento — e, no fim, o aviso de que o botão foi solto. Perder
+    esse aviso deixaria o gesto pendurado para sempre.
+    """
+
+    def _dispositivo(self):
+        from logitune.hidpp.constants import FeatureID
+        from logitune.hidpp.device import Hidpp20Device
+        from tests.fake_transport import FakeTransport
+
+        haptic = int(FeatureID.MX4_HAPTIC)
+        # Índices contíguos, como num dispositivo real. O FEATURE_SET precisa
+        # estar presente para o listener conseguir nomear a feature de onde a
+        # notificação veio.
+        transport = FakeTransport(
+            features={
+                int(FeatureID.ROOT): 0,
+                int(FeatureID.FEATURE_SET): 1,
+                _REPROG: 2,
+                haptic: 3,
+            },
+            responses={(haptic, 0x04): b"\x02"},
+        )
+        return Hidpp20Device(transport, device_index=1), transport
+
+    def _notificacao_crua(self, function: int, data: bytes) -> bytes:
+        # 0x11 longo, dispositivo 1, feature no índice 2 (0x1B04), software ID zero.
+        return bytes([0x11, 0x01, 0x02, (function << 4) | 0x00]) + data.ljust(16, b"\x00")
+
+    def test_evento_que_chega_durante_a_requisicao_e_preservado(self):
+        from logitune.hidpp.features.haptic import Haptic
+
+        device, transport = self._dispositivo()
+        listener = NotificationListener(device)
+
+        # O movimento e o "soltou" chegam enquanto a vibração é pedida.
+        transport.queue(self._notificacao_crua(_MOVIMENTO, b"\x00\x64\x00\x00"))
+        transport.queue(self._notificacao_crua(_BOTOES, b"\x00\x00\x00\x00"))
+
+        Haptic(device).play(2)
+
+        primeira = listener.poll(timeout=0)
+        assert primeira is not None
+        assert listener.as_raw_movement(primeira) == RawMovement(dx=100, dy=0)
+
+        segunda = listener.poll(timeout=0)
+        assert segunda is not None
+        evento = listener.as_button_event(segunda)
+        assert evento is not None and evento.pressed == frozenset()
+
+    def test_a_fila_nao_cresce_sem_limite(self):
+        device, transport = self._dispositivo()
+        for _ in range(200):
+            device._stashed.append(b"\x11\x01\x01\x00")
+        assert len(device._stashed) <= 64

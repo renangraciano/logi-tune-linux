@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass
 
 from logitune.hidpp.constants import (
@@ -48,6 +49,11 @@ _TRANSIENT_ERRORS = frozenset(
 
 #: Espera antes de repetir uma requisição que esbarrou num erro transitório.
 _RETRY_BACKOFF = 0.05
+
+#: Quantos relatórios alheios guardar enquanto esperamos uma resposta. Existe
+#: um teto porque a fila é um amortecedor, não um histórico: se ninguém vier
+#: buscar, o mais antigo é o que menos importa.
+_STASH_LIMIT = 64
 
 
 class HidppError(Exception):
@@ -121,6 +127,10 @@ class Hidpp20Device:
         self.retries = retries
         self._feature_index: dict[int, int | None] = {int(FeatureID.ROOT): ROOT_FEATURE_INDEX}
         self._feature_table: list[FeatureInfo] | None = None
+        #: Relatórios lidos enquanto esperávamos uma resposta, que não eram a
+        #: resposta. Guardá-los é o que impede uma requisição de engolir as
+        #: notificações que chegam no mesmo instante.
+        self._stashed: deque[bytes] = deque(maxlen=_STASH_LIMIT)
 
     # -- requisições ---------------------------------------------------
 
@@ -190,6 +200,12 @@ class Hidpp20Device:
                     break
                 deadline_reads += 1
                 if not self._matches(response, feature_index, function):
+                    # Não é a nossa resposta, mas é de alguém: quase sempre uma
+                    # notificação que chegou no meio da conversa. Descartar aqui
+                    # perderia justamente os eventos que o daemon espera — o
+                    # movimento de um gesto, ou o aviso de que o botão foi
+                    # solto, sumindo enquanto o mouse vibra.
+                    self._stashed.append(response)
                     continue
 
                 code = self._error_code(response)
@@ -237,6 +253,10 @@ class Hidpp20Device:
         return self.request(
             index, function, params, feature_id=feature_id, report_type=report_type
         )
+
+    def take_stashed(self) -> bytes | None:
+        """Retira o relatório mais antigo guardado durante uma requisição."""
+        return self._stashed.popleft() if self._stashed else None
 
     # -- descoberta de features ----------------------------------------
 
