@@ -197,6 +197,31 @@ class Config:
         """
         return bool(self.gestures.get("enabled", True))
 
+    #: Ajustes da roda do polegar que descrevem a mão, não o aplicativo: o
+    #: tempo até o alternador confirmar a escolha. Fica fora dos perfis pelo
+    #: mesmo motivo que os limiares de gesto.
+    wheel: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def switcher_idle_ms(self) -> int:
+        """Quanto tempo sem girar até o alternador confirmar.
+
+        Curto demais confirma no meio de um giro lento; longo demais atrasa a
+        janela que se quis trazer para a frente.
+        """
+        from logitune.actions.switcher import DEFAULT_IDLE_MS
+
+        bruto = self.wheel.get("switcher_idle_ms", DEFAULT_IDLE_MS)
+        try:
+            valor = int(bruto)
+        except (TypeError, ValueError):
+            logger.warning("switcher_idle_ms inválido ignorado: %r", bruto)
+            return DEFAULT_IDLE_MS
+        if not 100 <= valor <= 5000:
+            logger.warning("switcher_idle_ms fora da faixa (100–5000): %s", valor)
+            return DEFAULT_IDLE_MS
+        return valor
+
     def gesture_thresholds(self) -> GestureThresholds:
         """Os limiares configurados, caindo no padrão medido para o resto."""
         campos = {f for f in GestureThresholds.__dataclass_fields__}
@@ -240,6 +265,7 @@ class Config:
             "default": asdict(self.default),
             "profiles": [asdict(p) for p in self.profiles],
             "gestures": dict(self.gestures),
+            "wheel": dict(self.wheel),
         }
 
     @classmethod
@@ -276,6 +302,7 @@ class Config:
             default=build_settings(data.get("default", {})),
             profiles=profiles,
             gestures=dict(data.get("gestures", {}) or {}),
+            wheel=dict(data.get("wheel", {}) or {}),
         )
 
     def save(self, path: Path | None = None) -> Path:

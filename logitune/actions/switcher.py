@@ -28,6 +28,33 @@ logger = logging.getLogger(__name__)
 DEFAULT_IDLE_MS = 800
 
 
+class DetentCounter:
+    """Junta as unidades de giro em detents.
+
+    A roda não reporta detents: ela reporta na resolução desviada, que no
+    MX Master 4 é seis vezes mais fina que a nativa. Um passo por unidade
+    daria seis passos por clique da roda, e o alternador voaria pela lista.
+
+    O resto é guardado entre eventos, senão um giro lento — que chega como
+    uma sequência de deltas pequenos — nunca somaria um detent.
+    """
+
+    def __init__(self, units_per_detent: int = 1) -> None:
+        self.units_per_detent = max(1, units_per_detent)
+        self._resto = 0
+
+    def feed(self, delta: int) -> int:
+        """Quantos detents completos este giro fechou."""
+        self._resto += delta
+        detents = int(self._resto / self.units_per_detent)
+        self._resto -= detents * self.units_per_detent
+        return detents
+
+    def reset(self) -> None:
+        """Esquece o resto. Usado quando o giro termina."""
+        self._resto = 0
+
+
 class AppSwitcher:
     """Mantém o alternador aberto enquanto a roda gira.
 

@@ -123,3 +123,81 @@ class TestConfiguracaoDaRoda:
     def test_roundtrip_json(self):
         for bruto in ("window.switch_apps", {"up": "media.volume_up"}):
             assert WheelBinding.parse(bruto).to_json() == bruto
+
+
+class TestContagemDeDetents:
+    """A roda reporta na resolução desviada, não em detents.
+
+    No MX Master 4 são 120 por volta contra 20 nativos: seis unidades por
+    clique. Um passo por unidade faria o alternador voar pela lista — foi
+    medido no hardware, não deduzido.
+    """
+
+    def test_seis_unidades_fecham_um_detent(self):
+        from logitune.actions.switcher import DetentCounter
+
+        contador = DetentCounter(6)
+        assert [contador.feed(1) for _ in range(6)] == [0, 0, 0, 0, 0, 1]
+
+    def test_o_resto_sobrevive_entre_eventos(self):
+        """Um giro lento chega em deltas pequenos e ainda precisa somar."""
+        from logitune.actions.switcher import DetentCounter
+
+        contador = DetentCounter(6)
+        assert contador.feed(4) == 0
+        assert contador.feed(4) == 1  # 8 unidades = 1 detent, sobram 2
+        assert contador.feed(4) == 1  # 6 acumuladas fecham o próximo
+
+    def test_giro_rapido_fecha_varios(self):
+        from logitune.actions.switcher import DetentCounter
+
+        assert DetentCounter(6).feed(-24) == -4
+
+    def test_sentido_negativo_nao_arredonda_para_o_lado_errado(self):
+        # int() trunca em direção ao zero, que é o que se quer nos dois lados.
+        from logitune.actions.switcher import DetentCounter
+
+        contador = DetentCounter(6)
+        assert contador.feed(-4) == 0
+        assert contador.feed(-4) == -1
+
+    def test_reset_esquece_o_resto(self):
+        from logitune.actions.switcher import DetentCounter
+
+        contador = DetentCounter(6)
+        contador.feed(5)
+        contador.reset()
+        assert contador.feed(1) == 0
+
+    def test_proporcao_de_um_nao_acumula(self):
+        from logitune.actions.switcher import DetentCounter
+
+        assert [DetentCounter(1).feed(d) for d in (1, -1, 3)] == [1, -1, 3]
+
+
+class TestTempoConfiguravel:
+    """O tempo de confirmação estava fixo no código, o que é o mesmo que não
+    existir para quem quer ajustá-lo."""
+
+    def test_padrao(self):
+        from logitune.config import Config
+
+        assert Config().switcher_idle_ms == 800
+
+    def test_valor_configurado(self):
+        from logitune.config import Config
+
+        assert Config(wheel={"switcher_idle_ms": 1200}).switcher_idle_ms == 1200
+
+    @pytest.mark.parametrize("bruto", [50, 9000, "abc", None, -1])
+    def test_valor_fora_da_faixa_ou_invalido_cai_no_padrao(self, bruto):
+        from logitune.config import Config
+
+        assert Config(wheel={"switcher_idle_ms": bruto}).switcher_idle_ms == 800
+
+    def test_roundtrip_json(self, tmp_path):
+        from logitune.config import Config, load
+
+        destino = tmp_path / "config.json"
+        Config(wheel={"switcher_idle_ms": 1500}).save(destino)
+        assert load(destino).switcher_idle_ms == 1500

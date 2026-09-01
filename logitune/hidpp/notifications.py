@@ -12,6 +12,7 @@ requisições carregam o nosso ID.
 
 from __future__ import annotations
 
+import enum
 import logging
 from dataclasses import dataclass, field
 
@@ -95,22 +96,46 @@ class RawMovement:
         return self.dx * self.dx + self.dy * self.dy
 
 
+class ThumbWheelStatus(enum.IntEnum):
+    """Em que ponto do giro este evento chegou."""
+
+    INACTIVE = 0
+    START = 1
+    ACTIVE = 2
+    STOP = 3
+
+
 @dataclass(frozen=True)
 class ThumbWheelEvent:
     """Giro da roda do polegar, quando ela está desviada para o software.
 
-    O layout foi lido do hardware, não da documentação: a Logitech não publica
-    o formato do evento da 0x2150. Confirmado num MX Master 4 com o firmware
-    RBM 27.03.B0019 — os dois primeiros bytes são o deslocamento com sinal, e
-    o resto acompanha toque e proximidade quando o modelo os tem.
+    O layout foi lido do hardware, não da documentação — a Logitech não
+    publica o formato do evento da 0x2150. Medido num MX Master 4 com firmware
+    RBM 27.03.B0019, sobre algumas centenas de eventos::
+
+        ff f8 00 07 02 02   →  delta -8, t=7,  ativo
+        00 01 00 00 01 02   →  delta +1, t=0,  começou
+        00 00 00 00 03 00   →  delta  0,       parou
+
+    Os dois primeiros bytes são o deslocamento com sinal, os dois seguintes um
+    carimbo de tempo, e o quinto o estado do giro. O sexto carrega bandeiras
+    cujo significado este dispositivo não permite confirmar: o ``getInfo`` dele
+    diz não ter sensor de toque nem de proximidade, então elas ficam cruas em
+    vez de ganharem um nome inventado.
+
+    **O deslocamento não vem em detents.** Ele vem na resolução desviada, que
+    no MX Master 4 é 120 por volta contra 20 nativos — seis unidades por
+    detent. Tratar cada unidade como um detent faria um giro dar seis vezes
+    mais passos do que a mão pediu.
     """
 
-    #: Detents girados desde o último evento. Positivo é um sentido, negativo
-    #: o outro; qual deles é "para cima" depende da inversão configurada.
+    #: Unidades giradas desde o último evento, na resolução desviada.
     delta: int
-    #: O dedo está encostado na roda? Só vale nos modelos com sensor.
-    touch: bool = False
-    proximity: bool = False
+    status: ThumbWheelStatus = ThumbWheelStatus.ACTIVE
+    #: Carimbo de tempo do dispositivo, em unidades não documentadas.
+    timestamp: int = 0
+    #: Byte de bandeiras, sem interpretação confirmada neste modelo.
+    flags: int = 0
 
 
 class NotificationListener:
@@ -198,12 +223,15 @@ class NotificationListener:
             return None
         # Com sinal, pelo mesmo motivo do movimento bruto: girar para um lado
         # daria um número enorme no sentido oposto se lido sem sinal.
-        delta = int.from_bytes(data[0:2], "big", signed=True)
-        flags = data[3] if len(data) > 3 else 0
+        try:
+            status = ThumbWheelStatus(data[4]) if len(data) > 4 else ThumbWheelStatus.ACTIVE
+        except ValueError:
+            status = ThumbWheelStatus.ACTIVE
         return ThumbWheelEvent(
-            delta=delta,
-            touch=bool(flags & 0x01),
-            proximity=bool(flags & 0x02),
+            delta=int.from_bytes(data[0:2], "big", signed=True),
+            status=status,
+            timestamp=int.from_bytes(data[2:4], "big") if len(data) > 3 else 0,
+            flags=data[5] if len(data) > 5 else 0,
         )
 
     def as_button_event(self, notification: Notification) -> ButtonEvent | None:
