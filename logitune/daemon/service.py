@@ -18,6 +18,7 @@ from logitune import config as config_module
 from logitune.actions import ActionError, ResolvedAction, UnknownAction, resolve
 from logitune.actions.backends import keys as keys_backend
 from logitune.actions.gestures import Feedback, Gesture, GestureRecognizer
+from logitune.actions.switcher import AppSwitcher
 from logitune.hidpp.features.haptic import Waveform
 from logitune.config import Config, Settings
 from logitune.daemon.focus import FocusWatcher, Window
@@ -120,6 +121,10 @@ class Daemon:
         self._actions: dict[int, ResolvedAction] = {}
         #: Botões com gestos: CID para gesto para ação.
         self._gestures: dict[int, dict[Gesture, ResolvedAction]] = {}
+        #: O que a roda do polegar faz no perfil ativo.
+        self._wheel = None
+        self._wheel_diverted = False
+        self._switcher = AppSwitcher()
         self._recognizer = GestureRecognizer(
             config.gesture_thresholds(),
             bound=lambda cid: self._gestures.get(cid, {}).keys(),
@@ -265,6 +270,62 @@ class Daemon:
         self._gestures = gestos
         # Uma troca de perfil invalida qualquer pressionada em andamento.
         self._recognizer.reset()
+        self._setup_wheel(settings)
+
+    def _setup_wheel(self, settings: Settings) -> None:
+        """Desvia a roda do polegar quando ela tem ação, e devolve quando não.
+
+        Desviada, a roda para de gerar rolagem horizontal e passa a reportar
+        por HID++. Só vale desviá-la se houver quem leia — senão a pessoa
+        perde a rolagem e não ganha nada.
+        """
+        if self.device.thumbwheel is None:
+            return
+
+        desejado = settings.wheel_binding()
+        if desejado.is_empty:
+            self._wheel = None
+            self._switcher.cancel()
+            if self._wheel_diverted:
+                self._divert_wheel(False)
+            return
+
+        self._wheel = desejado
+        if not self._wheel_diverted:
+            self._divert_wheel(True)
+
+    def _divert_wheel(self, diverted: bool) -> None:
+        try:
+            self.device.thumbwheel.set_state(diverted=diverted)
+        except (HidppError, NoResponse) as exc:
+            logger.warning("não consegui mexer no desvio da roda do polegar: %s", exc)
+            return
+        self._wheel_diverted = diverted
+        logger.info(
+            "roda do polegar %s", "desviada" if diverted else "de volta à rolagem"
+        )
+
+    def _handle_wheel(self, delta: int) -> None:
+        """Um giro da roda do polegar."""
+        if self._wheel is None or delta == 0:
+            return
+
+        if self._wheel.stateful == "window.switch_apps":
+            self._switcher.step(delta)
+            return
+
+        binding = self._wheel.for_direction(delta)
+        if binding is None:
+            return
+        try:
+            acao = resolve(binding)
+        except UnknownAction as exc:
+            logger.warning("roda do polegar: %s", exc)
+            return
+        # Um giro rápido chega como vários detents num evento só, e repetir a
+        # ação por detent é o que faz o volume acompanhar a mão.
+        for _ in range(min(abs(delta), 8)):
+            self._run(acao)
 
     def restore(self) -> None:
         """Devolve os botões desviados ao comportamento normal.
@@ -279,6 +340,12 @@ class Daemon:
             except (HidppError, NoResponse) as exc:
                 logger.error("o botão 0x%04X ficou desviado: %s", cid, exc)
         self._diverted.clear()
+
+        # A roda e o teclado virtual também precisam voltar: uma roda desviada
+        # deixa de rolar, e uma tecla segurada sobrevive a quem a segurou.
+        self._switcher.cancel()
+        if self._wheel_diverted:
+            self._divert_wheel(False)
 
     # -- reações -------------------------------------------------------
 
@@ -358,6 +425,11 @@ class Daemon:
             if notification is None:
                 return
 
+            giro = self.listener.as_thumbwheel_event(notification)
+            if giro is not None:
+                self._handle_wheel(giro.delta)
+                continue
+
             movement = self.listener.as_raw_movement(notification)
             if movement is not None:
                 self._dispatch_gestures(
@@ -421,8 +493,15 @@ class Daemon:
                 # Um gesto que depende do tempo — o hold, a janela do duplo
                 # toque — nunca chegaria na hora se o laço dormisse o segundo
                 # inteiro esperando um descritor falar.
-                prazo = self._recognizer.next_deadline()
-                espera = 1.0 if prazo is None else min(1.0, prazo)
+                prazos = [
+                    p
+                    for p in (
+                        self._recognizer.next_deadline(),
+                        self._switcher.next_deadline(),
+                    )
+                    if p is not None
+                ]
+                espera = min([1.0, *prazos])
                 try:
                     ready, _, _ = select.select(watched, [], [], espera)
                 except InterruptedError:
@@ -435,6 +514,8 @@ class Daemon:
                     self._reload_config()
 
                 self._dispatch_gestures(self._recognizer.tick())
+                # Confirma a escolha do alternador quando a roda para.
+                self._switcher.tick()
 
                 if focus_fd is not None and focus_fd in ready:
                     if self.focus.drain_events():

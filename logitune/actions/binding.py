@@ -95,6 +95,70 @@ class ButtonBinding:
         return {g.value: b.to_json() for g, b in self.gestures.items()}
 
 
+#: Comportamentos da roda que guardam estado entre um giro e o outro, e por
+#: isso não podem ser descritos como duas ações independentes. O alternador de
+#: aplicativos é o caso: ele segura o Alt enquanto a roda gira.
+STATEFUL_WHEEL_ACTIONS = frozenset({"window.switch_apps"})
+
+
+@dataclass(frozen=True)
+class WheelBinding:
+    """O que a roda do polegar faz.
+
+    Duas formas. Uma ação por sentido de giro cobre o caso simples — subir e
+    baixar o volume, por exemplo — e cada giro dispara uma ação independente.
+    A outra é um comportamento contínuo, como o alternador de aplicativos, que
+    precisa saber que a roda ainda está girando.
+    """
+
+    up: Binding | None = None
+    down: Binding | None = None
+    #: Id do comportamento contínuo, quando é esse o caso.
+    stateful: str | None = None
+
+    @property
+    def is_empty(self) -> bool:
+        return self.up is None and self.down is None and self.stateful is None
+
+    def for_direction(self, delta: int) -> Binding | None:
+        return self.up if delta > 0 else self.down
+
+    @classmethod
+    def parse(cls, raw: Any) -> WheelBinding:
+        if raw is None:
+            return cls()
+        if isinstance(raw, str):
+            nome = raw.strip()
+            if nome in STATEFUL_WHEEL_ACTIONS:
+                return cls(stateful=nome)
+            raise BindingError(
+                f"{nome!r} não é um comportamento contínuo de roda; "
+                f"use {{'up': ..., 'down': ...}} para uma ação por sentido"
+            )
+        if isinstance(raw, Mapping):
+            desconhecidos = set(raw) - {"up", "down"}
+            if desconhecidos:
+                raise BindingError(
+                    f"chave(s) desconhecida(s) na roda: {', '.join(sorted(desconhecidos))} "
+                    f"(use 'up' e 'down')"
+                )
+            return cls(
+                up=Binding.parse(raw["up"]) if raw.get("up") else None,
+                down=Binding.parse(raw["down"]) if raw.get("down") else None,
+            )
+        raise BindingError(f"não sei ler {raw!r} como ação de roda")
+
+    def to_json(self) -> Any:
+        if self.stateful:
+            return self.stateful
+        saida = {}
+        if self.up:
+            saida["up"] = self.up.to_json()
+        if self.down:
+            saida["down"] = self.down.to_json()
+        return saida
+
+
 def command_binding(command: str) -> ButtonBinding:
     """Traduz uma linha de comando da chave antiga ``actions``."""
     return ButtonBinding(press=Binding(action="shell.run", params={"command": command}))

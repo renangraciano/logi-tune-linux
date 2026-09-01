@@ -95,6 +95,24 @@ class RawMovement:
         return self.dx * self.dx + self.dy * self.dy
 
 
+@dataclass(frozen=True)
+class ThumbWheelEvent:
+    """Giro da roda do polegar, quando ela está desviada para o software.
+
+    O layout foi lido do hardware, não da documentação: a Logitech não publica
+    o formato do evento da 0x2150. Confirmado num MX Master 4 com o firmware
+    RBM 27.03.B0019 — os dois primeiros bytes são o deslocamento com sinal, e
+    o resto acompanha toque e proximidade quando o modelo os tem.
+    """
+
+    #: Detents girados desde o último evento. Positivo é um sentido, negativo
+    #: o outro; qual deles é "para cima" depende da inversão configurada.
+    delta: int
+    #: O dedo está encostado na roda? Só vale nos modelos com sensor.
+    touch: bool = False
+    proximity: bool = False
+
+
 class NotificationListener:
     """Lê notificações de um dispositivo e traduz eventos de botão."""
 
@@ -168,6 +186,24 @@ class NotificationListener:
         return RawMovement(
             dx=int.from_bytes(data[0:2], "big", signed=True),
             dy=int.from_bytes(data[2:4], "big", signed=True),
+        )
+
+    def as_thumbwheel_event(self, notification: Notification) -> ThumbWheelEvent | None:
+        """Traduz uma notificação de giro da roda do polegar."""
+        if notification.feature_id != int(FeatureID.THUMB_WHEEL):
+            return None
+
+        data = notification.data
+        if len(data) < 2:
+            return None
+        # Com sinal, pelo mesmo motivo do movimento bruto: girar para um lado
+        # daria um número enorme no sentido oposto se lido sem sinal.
+        delta = int.from_bytes(data[0:2], "big", signed=True)
+        flags = data[3] if len(data) > 3 else 0
+        return ThumbWheelEvent(
+            delta=delta,
+            touch=bool(flags & 0x01),
+            proximity=bool(flags & 0x02),
         )
 
     def as_button_event(self, notification: Notification) -> ButtonEvent | None:

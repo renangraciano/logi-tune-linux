@@ -21,6 +21,7 @@ from logitune.actions.gestures import GestureThresholds
 from logitune.actions.binding import (
     BindingError,
     ButtonBinding,
+    WheelBinding,
     command_binding,
     merge_raw,
 )
@@ -66,6 +67,9 @@ class Settings:
     #: Ações do catálogo por botão, de CID para id de ação, objeto com
     #: parâmetros ou mapa de gestos. Ver :mod:`logitune.actions.binding`.
     bindings: dict[str, Any] = field(default_factory=dict)
+    #: O que a roda do polegar faz. Vazio deixa a rolagem horizontal do
+    #: sistema em paz, que é o comportamento de fábrica.
+    thumbwheel: Any = None
 
     def merged_with(self, base: Settings) -> Settings:
         """Combina com um perfil base, deixando este ter a última palavra."""
@@ -77,7 +81,18 @@ class Settings:
         # Os vínculos precisam de merge por gesto: um perfil que sobrescreve
         # só o "tap" não pode apagar os outros seis gestos do mesmo botão.
         merged.bindings = merge_raw(base.bindings, self.bindings)
+        merged.thumbwheel = (
+            self.thumbwheel if self.thumbwheel is not None else base.thumbwheel
+        )
         return merged
+
+    def wheel_binding(self) -> WheelBinding:
+        """O que a roda do polegar faz neste perfil."""
+        try:
+            return WheelBinding.parse(self.thumbwheel)
+        except BindingError as exc:
+            logger.warning("roda do polegar com configuração inválida: %s", exc)
+            return WheelBinding()
 
     def action_pairs(self) -> list[tuple[int, str]]:
         """As ações antigas como pares ``(CID, comando)``."""
