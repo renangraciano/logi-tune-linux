@@ -34,11 +34,20 @@ from logitune.actions.spec import (
 )
 from logitune.config import Settings
 
-evdev = pytest.importorskip("evdev")
+from logitune.actions.backends import keys
 
-from logitune.actions.backends import keys  # noqa: E402 - depende do evdev
+# O evdev só é necessário para sintetizar teclas. Catálogo, vínculos, merge e
+# resolução não dependem dele — e não podem ser pulados junto, senão a suíte
+# some inteira em qualquer máquina sem o pacote, como aconteceu no CI.
+try:
+    import evdev
+except ImportError:  # pragma: no cover - depende do ambiente
+    evdev = None
+
+requer_evdev = pytest.mark.skipif(evdev is None, reason="precisa do python3-evdev")
 
 
+@requer_evdev
 class TestAtalhos:
     def test_le_modificadores_e_tecla(self):
         atalho = keys.parse_shortcut("ctrl+shift+t")
@@ -82,6 +91,7 @@ class TecladoFalso:
         self.emitidos.append(shortcut.text)
 
 
+@requer_evdev
 class TestSinteseDeTeclas:
     def test_emite_o_atalho_pedido(self, monkeypatch):
         falso = TecladoFalso()
@@ -124,6 +134,7 @@ class TestCatalogo:
         registro = default_registry()
         assert len({spec.id for spec in registro}) == len(registro)
 
+    @requer_evdev
     def test_todo_atalho_do_catalogo_e_valido(self):
         """Um atalho com erro de digitação só apareceria no dia do clique."""
         for spec in default_registry():
@@ -269,8 +280,15 @@ class TestResolucao:
         assert "url" in disponivel.reason
 
     def test_parametro_preenchido_dispensa_o_aviso(self):
-        acao = resolve(Binding("app.open_url", {"url": "https://exemplo.org"}))
-        assert acao.available().ok
+        # Com uma ação do catálogo isto passaria a testar o backend dela — o
+        # app.open_url só está disponível onde há PyGObject. O que importa
+        # aqui é só o preenchimento do parâmetro.
+        spec = ActionSpec(
+            "t.url", "Com URL", Category.SISTEMA,
+            run=lambda context: None,
+            parameters=(Parameter("url", "Endereço"),),
+        )
+        assert ResolvedAction(spec, {"url": "https://exemplo.org"}).available().ok
 
     def test_valor_padrao_chega_na_execucao(self):
         vistos = {}
