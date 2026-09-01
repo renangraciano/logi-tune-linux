@@ -20,9 +20,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402
 
 from logitune.i18n import _  # noqa: E402
+from logitune.ui.mouse_model import MODEL_REGISTRY  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -47,28 +48,6 @@ def _ensure_css() -> None:
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
     )
     _CSS_LOADED = True
-
-
-# ---------------------------------------------------------------------------
-# Coordenadas dos hotspots por modelo
-# ---------------------------------------------------------------------------
-
-#: Posições relativas (x%, y%) de cada Control ID na imagem do MX Master 4.
-#: Serão convertidas em pixels em tempo de execução com base no tamanho real
-#: da imagem renderizada.
-MX_MASTER_4_HOTSPOTS: dict[int, tuple[float, float]] = {
-    0x0052: (54.0, 26.0),   # Middle button (scroll wheel click)
-    0x0053: (30.0, 51.0),   # Back
-    0x0056: (27.0, 57.0),   # Forward
-    0x00C3: (34.0, 46.0),   # Gesture button
-    0x00C4: (44.0, 35.0),   # SmartShift (mode shift)
-    0x01A0: (24.0, 62.0),   # Actions Ring (MX Master 4 only)
-}
-
-#: Registro de modelos → (nome da imagem, mapa de hotspots).
-MODEL_REGISTRY: dict[str, tuple[str, dict[int, tuple[float, float]]]] = {
-    "MX Master 4": ("mx_master4.png", MX_MASTER_4_HOTSPOTS),
-}
 
 
 class MouseHotspotView(Gtk.Box):
@@ -118,6 +97,9 @@ class MouseHotspotView(Gtk.Box):
         self._on_configure = on_configure
         self._on_clear = on_clear
         self._active_cid: int | None = None
+        #: Falso quando não há desenho para este modelo; a janela então
+        #: mostra só a lista de botões.
+        self._available = True
 
         # Encontrar imagem e mapa de hotspots para o modelo
         entry = MODEL_REGISTRY.get(model_name)
@@ -129,17 +111,20 @@ class MouseHotspotView(Gtk.Box):
                     break
 
         if entry is None:
+            # Sem desenho para este modelo não há o que mostrar. Desenhar o
+            # MX Master 4 para outro mouse seria pior que não desenhar nada:
+            # os botões estariam nos lugares errados.
             logger.info(
-                "Modelo %r não tem mapa de hotspots; exibindo sem marcadores.", model_name,
+                "sem desenho para o modelo %r; a lista de botões dá conta", model_name
             )
-            self._hotspot_map: dict[int, tuple[float, float]] = {}
-            image_name = "mx_master4.png"
-        else:
-            image_name, self._hotspot_map = entry
+            self._available = False
+            return
 
+        image_name, self._hotspot_map = entry
         image_path = _ASSETS / image_name
         if not image_path.exists():
-            logger.warning("Imagem do mouse não encontrada: %s", image_path)
+            logger.warning("desenho do mouse não encontrado: %s", image_path)
+            self._available = False
             return
 
         # -- Montagem do widget --------------------------------------------
@@ -171,15 +156,6 @@ class MouseHotspotView(Gtk.Box):
 
         # Reposiciona os hotspots quando o widget redimensiona.
         self._picture.connect("notify::paintable", lambda *_: self._reposition())
-
-        # Legenda
-        label = Gtk.Label(
-            label=_("Click a button on the mouse to customise it."),
-            margin_top=8,
-        )
-        label.add_css_class("dim-label")
-        label.add_css_class("caption")
-        self.append(label)
 
         # Atraso para posicionar os hotspots após o layout inicial.
         GLib.idle_add(self._reposition)
@@ -382,3 +358,8 @@ class MouseHotspotView(Gtk.Box):
         """Atualiza todos os hotspots."""
         for cid in self._hotspot_buttons:
             self.refresh_hotspot(cid)
+
+    @property
+    def available(self) -> bool:
+        """Há desenho para este modelo?"""
+        return self._available

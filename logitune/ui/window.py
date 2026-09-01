@@ -310,13 +310,11 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         group = Adw.PreferencesGroup(
             title=_("Buttons"),
-            description=_("Click a button on the mouse to customise it."),
+            description=_("Click a button on the mouse, or pick one from the list."),
         )
 
         self._button_rows = {}
         self._button_controls = {}
-        for control in divertable:
-            self._button_controls[control.control_id] = control
 
         self._mouse_view = MouseHotspotView(
             controls=divertable,
@@ -326,7 +324,18 @@ class LogituneWindow(Adw.ApplicationWindow):
             on_configure=self._pick_action,
             on_clear=self._clear_binding,
         )
-        group.add(self._mouse_view)
+        if self._mouse_view.available:
+            group.add(self._mouse_view)
+        else:
+            self._mouse_view = None
+
+        # A lista fica junto do desenho, não no lugar dele. O desenho é para
+        # reconhecer o botão pela posição; a lista é o que garante que nenhum
+        # botão fique inalcançável — nem os que não têm lugar no desenho, como
+        # o gesto virtual — e é o único caminho por teclado e leitor de tela.
+        for control in divertable:
+            self._button_controls[control.control_id] = control
+            group.add(self._make_button_row(control))
 
         if not self._store.daemon_running():
             # Um vínculo sem daemon fica gravado e não acontece. Melhor dizer
