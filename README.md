@@ -48,6 +48,8 @@ GNOME 46, X11.
 | ✅ | Easy-Switch between three hosts | `0x1814` `0x1815` |
 | ✅ | **Haptic feedback — 15 waveforms** | `0x19B0` |
 | ✅ | Per-application profiles (X11) | — |
+| ✅ | **53 actions to bind buttons to** | — |
+| 🚧 | Gestures on a held button | `0x1B04` |
 | 🚧 | Actions Ring radial menu | `0x01A0` |
 
 ## Two things you will not find elsewhere
@@ -121,6 +123,8 @@ logitune button back --remap 0x0052
 logitune hosts                # paired computers
 logitune host 2               # move the mouse to channel 2
 logitune haptic 3             # play one vibration pattern
+logitune actions              # the catalogue a button can be bound to
+logitune actions --run media.play_pause   # try one out
 logitune doctor               # check permissions and dependencies
 logitune-gui                  # graphical interface
 ```
@@ -161,15 +165,68 @@ systemctl --user enable --now logitune-daemon
       "settings": {
         "dpi": 3200,
         "ratchet": true,
-        "actions": { "0x01A0": "xdotool key super" }
+        "bindings": { "0x0056": "browser.reopen_tab" }
       }
     }
   ]
 }
 ```
 
-`buttons` remaps a control in firmware; `actions` diverts a button so the daemon
-runs a command instead. Diverted buttons are restored when the daemon exits.
+`buttons` remaps a control in firmware. `bindings` diverts a button so the daemon
+runs an action instead; diverted buttons are restored when the daemon exits.
+
+### Button actions
+
+`logitune actions` lists everything a button can do, grouped the way Logi
+Options+ groups it, with a mark next to whatever is unavailable in your session
+and why. Bind by id, and pass parameters when an action needs them:
+
+```json
+"bindings": {
+  "0x0053": "browser.back",
+  "0x0056": { "action": "key.shortcut", "keys": "ctrl+shift+t" },
+  "0x00C4": { "action": "app.launch", "app": "org.gnome.Calculator" }
+}
+```
+
+Each action runs through whichever backend fits it, and the difference matters:
+
+| Kind of action | Backend | Needs |
+| --- | --- | --- |
+| Media, lock screen, app grid | D-Bus (MPRIS, GNOME Shell) | nothing extra |
+| Volume, microphone mute | PipeWire (`wpctl`) | nothing extra |
+| Open an app, a file, a URL | `Gio.AppInfo` | nothing extra |
+| DPI, wheel mode, Easy-Switch, haptics | HID++, our own stack | nothing extra |
+| Keyboard shortcuts (copy, tabs, workspaces) | `uinput` | the udev rule |
+
+Only the last row needs `/dev/uinput`, because reaching the focused application
+is the one thing no session API can do. Everything else works without it —
+`logitune doctor` tells you where you stand.
+
+A button whose action cannot run is left alone rather than diverted: a dead
+button that does nothing and says nothing is worse than one that still clicks.
+
+The `actions` key from earlier versions still works — each entry becomes the
+`shell.run` action — so existing configurations keep running untouched.
+
+Gestures are the next step. The configuration already accepts them, so a button
+can carry seven functions instead of one:
+
+```json
+"bindings": {
+  "0x01A0": {
+    "tap":        "system.overview",
+    "double_tap": "media.play_pause",
+    "hold":       "system.screenshot_area",
+    "drag_left":  "workspace.left",
+    "drag_right": "workspace.right"
+  }
+}
+```
+
+Until the recogniser lands, only `tap` fires, on click. The hardware is ready:
+every divertable button on the MX Master 4 — the Actions Ring included —
+reports `RAW_XY`, so it streams movement while held.
 
 The daemon blocks in `select` on the X and hidraw descriptors — no polling, no
 CPU at rest.
@@ -217,6 +274,8 @@ If you decode something, please [open an issue](https://github.com/renangraciano
 
 ## Roadmap
 
+- [ ] Gestures: tap, double tap, hold and drag in four directions on one button
+- [ ] Profile and button-mapping UI, so the config file becomes optional
 - [ ] Actions Ring radial menu via a GNOME Shell extension
 - [ ] Per-application profiles on Wayland (same extension solves both)
 - [ ] Decode `0x19C0`
@@ -232,6 +291,11 @@ If you decode something, please [open an issue](https://github.com/renangraciano
   else works. The daemon says so on startup.
 - **Running alongside Solaar** works, but both write to the same device and can
   undo each other. Use one at a time.
+- **Coming from Solaar?** It diverts the thumb wheel (`thumb-scroll-mode`) and
+  does not restore it when uninstalled. The flag lives in the mouse's firmware,
+  so the wheel keeps reporting to software that is no longer there and simply
+  stops scrolling. `logitune doctor` detects this; `logitune scroll
+  --no-thumb-divert` fixes it.
 - **Wheel mode is volatile**: with SmartShift active the firmware switches
   between ratchet and freewheel on its own. Forcing a mode lasts until the next
   fast scroll.

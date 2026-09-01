@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Abrir aplicativos, arquivos, endereços — e rodar comandos.
+
+O ``Gio.AppInfo`` é o mesmo registro que o menu de aplicativos usa, então
+"abrir o Calculadora" acha o programa pelo arquivo ``.desktop``, com o nome e
+o ícone que a pessoa já conhece, e o inicia do jeito que a sessão espera.
+
+O comando de shell continua existindo para o que não couber em nenhuma ação —
+é a saída de emergência que mantém funcionando quem já configurava o daemon
+com linhas de comando.
+"""
+
+from __future__ import annotations
+
+import logging
+import shlex
+import subprocess
+from dataclasses import dataclass
+
+from logitune.actions.spec import AVAILABLE, ActionError, Availability
+
+logger = logging.getLogger(__name__)
+
+
+def _gio():
+    try:
+        import gi
+
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gio
+    except (ImportError, ValueError) as exc:  # pragma: no cover - depende do ambiente
+        raise ActionError(
+            "o PyGObject não está instalado (sudo apt install python3-gi)"
+        ) from exc
+    return Gio
+
+
+@dataclass(frozen=True)
+class AppEntry:
+    """Um aplicativo instalado, como a interface vai listar."""
+
+    desktop_id: str
+    name: str
+    icon: str = ""
+
+
+def list_apps() -> list[AppEntry]:
+    """Os aplicativos que aparecem no menu, em ordem alfabética."""
+    Gio = _gio()
+    entradas = []
+    for info in Gio.AppInfo.get_all():
+        if not info.should_show():
+            continue
+        icone = info.get_icon()
+        entradas.append(
+            AppEntry(
+                desktop_id=info.get_id() or "",
+                name=info.get_display_name() or info.get_name() or "",
+                icon=icone.to_string() if icone else "",
+            )
+        )
+    return sorted(entradas, key=lambda e: e.name.casefold())
+
+
+def launch_app(target: str) -> None:
+    """Inicia um aplicativo pelo id ``.desktop`` ou por uma linha de comando.
+
+    Aceitar as duas formas é deliberado: o id é o que a interface vai gravar,
+    a linha de comando é o que uma pessoa escreve à mão no JSON.
+    """
+    Gio = _gio()
+    desktop_id = target if target.endswith(".desktop") else f"{target}.desktop"
+    info = Gio.DesktopAppInfo.new(desktop_id)
+    if info is None:
+        info = Gio.AppInfo.create_from_commandline(
+            target, None, Gio.AppInfoCreateFlags.NONE
+        )
+    if info is None:
+        raise ActionError(f"não encontrei o aplicativo {target!r}")
+    try:
+        info.launch(None, None)
+    except Exception as exc:  # noqa: BLE001 - GLib.Error vira mensagem legível
+        raise ActionError(f"não consegui abrir {target!r}: {exc}") from exc
+
+
+def open_uri(uri: str) -> None:
+    """Abre um endereço, arquivo ou pasta no aplicativo padrão."""
+    Gio = _gio()
+    # Sem esquema, é um caminho no disco: o Gio precisa de uma URI completa.
+    alvo = uri if "://" in uri or uri.startswith("mailto:") else Gio.File.new_for_path(uri).get_uri()
+    try:
+        Gio.AppInfo.launch_default_for_uri(alvo, None)
+    except Exception as exc:  # noqa: BLE001
+        raise ActionError(f"não consegui abrir {uri!r}: {exc}") from exc
+
+
+def run_command(command: str) -> None:
+    """Dispara uma linha de comando e não espera por ela.
+
+    O processo sai da nossa sessão para não morrer junto com o daemon, e o
+    kernel recolhe o filho — quem chama mantém ``SIGCHLD`` em ``SIG_IGN``.
+    """
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise ActionError(f"comando mal formado {command!r}: {exc}") from exc
+    if not argv:
+        raise ActionError("comando vazio")
+    try:
+        subprocess.Popen(  # noqa: S603 - o comando vem da config do usuário
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        raise ActionError(f"não consegui executar {command!r}: {exc}") from exc
+
+
+def availability() -> Availability:
+    try:
+        _gio()
+    except ActionError as exc:
+        return Availability(False, str(exc))
+    return AVAILABLE
