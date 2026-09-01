@@ -15,6 +15,14 @@ import logging
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
+
+from logitune.actions.binding import (
+    BindingError,
+    ButtonBinding,
+    command_binding,
+    merge_raw,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +59,12 @@ class Settings:
     #: As chaves são strings hexadecimais ("0x0053") para o JSON ficar legível.
     buttons: dict[str, str] = field(default_factory=dict)
     #: Comandos disparados por botões desviados, de CID para linha de comando.
-    #: Um botão que aparece aqui é desviado pelo daemon: ele deixa de gerar o
-    #: clique normal e passa a executar este comando.
+    #: Forma antiga, mantida para não quebrar quem já configurou: cada entrada
+    #: vira a ação ``shell.run``. Prefira ``bindings``.
     actions: dict[str, str] = field(default_factory=dict)
+    #: Ações do catálogo por botão, de CID para id de ação, objeto com
+    #: parâmetros ou mapa de gestos. Ver :mod:`logitune.actions.binding`.
+    bindings: dict[str, Any] = field(default_factory=dict)
 
     def merged_with(self, base: Settings) -> Settings:
         """Combina com um perfil base, deixando este ter a última palavra."""
@@ -62,10 +73,13 @@ class Settings:
         }})
         merged.buttons = {**base.buttons, **self.buttons}
         merged.actions = {**base.actions, **self.actions}
+        # Os vínculos precisam de merge por gesto: um perfil que sobrescreve
+        # só o "tap" não pode apagar os outros seis gestos do mesmo botão.
+        merged.bindings = merge_raw(base.bindings, self.bindings)
         return merged
 
     def action_pairs(self) -> list[tuple[int, str]]:
-        """As ações como pares ``(CID, comando)``."""
+        """As ações antigas como pares ``(CID, comando)``."""
         pairs: list[tuple[int, str]] = []
         for source, command in self.actions.items():
             try:
@@ -73,6 +87,34 @@ class Settings:
             except ValueError:
                 logger.warning("ação com controle inválido ignorada: %s", source)
         return pairs
+
+    def binding_pairs(self) -> list[tuple[int, ButtonBinding]]:
+        """Tudo que os botões fazem, como pares ``(CID, vínculo)``.
+
+        As duas formas de configurar entram aqui: os comandos da chave antiga
+        ``actions`` e os vínculos de ``bindings``, com estes últimos tendo a
+        palavra final quando o mesmo botão aparece nos dois lugares.
+        """
+        pairs: dict[int, ButtonBinding] = {}
+
+        for source, command in self.actions.items():
+            try:
+                pairs[int(source, 0)] = command_binding(command)
+            except ValueError:
+                logger.warning("ação com controle inválido ignorada: %s", source)
+
+        for source, raw in self.bindings.items():
+            try:
+                cid = int(source, 0)
+            except ValueError:
+                logger.warning("vínculo com controle inválido ignorado: %s", source)
+                continue
+            try:
+                pairs[cid] = ButtonBinding.parse(raw)
+            except BindingError as exc:
+                logger.warning("vínculo inválido para %s: %s", source, exc)
+
+        return sorted(pairs.items())
 
     def button_pairs(self) -> list[tuple[int, int]]:
         """Os remapeamentos como pares de inteiros ``(origem, destino)``."""
@@ -241,7 +283,13 @@ def load(path: Path | None = None) -> Config:
 def example_config() -> Config:
     """Uma configuração de exemplo, escrita no primeiro uso do daemon."""
     return Config(
-        default=Settings(dpi=2800, smartshift=32, invert_thumb=True),
+        default=Settings(
+            dpi=2800,
+            smartshift=32,
+            invert_thumb=True,
+            # "logitune actions" lista tudo que dá para pôr aqui.
+            bindings={"0x0056": "browser.reopen_tab"},
+        ),
         profiles=[
             Profile(
                 name="Navegador",
