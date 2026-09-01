@@ -3,8 +3,26 @@
 
 from __future__ import annotations
 
+import pytest
+
 from logitune.config import Config, Settings
 from logitune.ui.state import ConfigStore
+
+# A interface depende do PyGObject, que vem do sistema e não do pip. O CI não
+# o tem, e pular os testes que abrem widget é melhor do que exigir uma pilha
+# GTK inteira só para conferir escapes de texto.
+try:
+    import gi
+
+    gi.require_version("Gtk", "4.0")
+    gi.require_version("Adw", "1")
+    from gi.repository import Adw  # noqa: F401
+
+    _tem_gtk = True
+except (ImportError, ValueError):  # pragma: no cover - depende do ambiente
+    _tem_gtk = False
+
+requer_gtk = pytest.mark.skipif(not _tem_gtk, reason="precisa do PyGObject com GTK4 e libadwaita")
 
 
 class TestConfigStore:
@@ -65,6 +83,7 @@ class TestConfigStore:
         assert destino.stat().st_mode & 0o777 == 0o600
 
 
+@requer_gtk
 class TestNomesComMarkup:
     """Os títulos das linhas são interpretados como markup Pango.
 
@@ -72,19 +91,7 @@ class TestNomesComMarkup:
     derruba a linha inteira, e o GTK só reclama no terminal.
     """
 
-    def test_nomes_com_e_comercial_sao_escapados(self):
-        import gi
-
-        gi.require_version("Gtk", "4.0")
-        from gi.repository import GLib
-
-        assert GLib.markup_escape_text("Software & Updates") == "Software &amp; Updates"
-
     def test_o_seletor_escapa_o_nome(self, monkeypatch):
-        import gi
-
-        gi.require_version("Gtk", "4.0")
-        gi.require_version("Adw", "1")
         from logitune.actions.backends.launch import AppEntry
         from logitune.ui import app_picker
 
