@@ -213,7 +213,8 @@ The `actions` key from earlier versions still works — each entry becomes the
 
 **One button, one action is the default, and for most people it should stay
 that way.** The Actions Ring behaves like any other button unless you ask for
-more.
+more. There is a switch for it in the app, under *Gestures* — flipping it takes
+effect immediately, without restarting the daemon or losing the configuration.
 
 If you do want more, a button can carry up to seven functions — tap, double
 tap, hold, and drag in four directions:
@@ -259,14 +260,20 @@ calibrated on, or raise `hold_ms` if your ordinary clicks are slow enough to
 register as holds:
 
 ```json
-"gestures": { "drag_units": 200, "drag_samples": 3, "hold_ms": 500, "double_tap_ms": 400 }
+"gestures": { "enabled": true, "drag_units": 200, "drag_samples": 3, "hold_ms": 500, "double_tap_ms": 400 }
 ```
 
 Measure your own with `logitune watch <cid> --raw-xy`, which prints a
 per-button summary of duration, displacement and sample count.
 
 The daemon blocks in `select` on the X and hidraw descriptors — no polling, no
-CPU at rest.
+CPU at rest. It reloads on `SIGHUP` (`systemctl --user reload logitune-daemon`),
+so a configuration change applies without dropping the service and losing the
+state of the diverted buttons.
+
+If your settings ever seem to stop applying, run `logitune doctor`: a malformed
+`config.json` makes the daemon fall back to defaults, and until now the only
+trace was a line in the journal.
 
 ## How it compares
 

@@ -167,15 +167,28 @@ class Config:
     #: Aplicado quando nenhum perfil casa, e como base para todos eles.
     default: Settings = field(default_factory=Settings)
     profiles: list[Profile] = field(default_factory=list)
-    #: Limiares do reconhecimento de gestos. Ficam fora dos perfis de
-    #: propósito: eles descrevem a mão de quem usa, não o aplicativo em foco.
-    gestures: dict[str, int] = field(default_factory=dict)
+    #: Reconhecimento de gestos: se está ligado e com que limiares. Fica fora
+    #: dos perfis de propósito: descreve a mão de quem usa, não o aplicativo
+    #: em foco.
+    gestures: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def gestures_enabled(self) -> bool:
+        """Os gestos estão ligados?
+
+        Ligados por padrão: quem escreveu um mapa de gestos já disse o que
+        queria, e não deveria precisar de uma segunda confirmação. O
+        interruptor existe para desligar sem perder a configuração.
+        """
+        return bool(self.gestures.get("enabled", True))
 
     def gesture_thresholds(self) -> GestureThresholds:
         """Os limiares configurados, caindo no padrão medido para o resto."""
         campos = {f for f in GestureThresholds.__dataclass_fields__}
         valores: dict[str, int] = {}
         for chave, valor in self.gestures.items():
+            if chave == "enabled":
+                continue
             if chave not in campos:
                 logger.warning("limiar de gesto desconhecido ignorado: %s", chave)
                 continue
@@ -286,6 +299,28 @@ def check_permissions(path: Path | None = None) -> str | None:
             f"Como este arquivo define comandos que o daemon executa, "
             f"corrija com: chmod {FILE_MODE:o} {target}"
         )
+    return None
+
+
+def validate(path: Path | None = None) -> str | None:
+    """Confere se a configuração é legível. Devolve o erro, ou ``None``.
+
+    :func:`load` engole o erro de propósito — um arquivo quebrado não pode
+    derrubar o daemon — mas engolir também esconde: o daemon volta aos padrões
+    e nada na tela avisa que os seus ajustes pararam de valer. Esta função
+    existe para o diagnóstico poder contar.
+    """
+    target = path or config_path()
+    if not target.is_file():
+        return None
+    try:
+        data = json.loads(target.read_text())
+    except json.JSONDecodeError as exc:
+        return f"{target} tem JSON inválido na linha {exc.lineno}: {exc.msg}"
+    except OSError as exc:
+        return f"não consegui ler {target}: {exc}"
+    if not isinstance(data, dict):
+        return f"{target} deveria conter um objeto JSON"
     return None
 
 

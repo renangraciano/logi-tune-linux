@@ -466,6 +466,17 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
     except ImportError:
         itens.append((False, "python-xlib", "ausente — sudo apt install python3-xlib"))
 
+    # -- configuração ------------------------------------------------
+    # Um JSON quebrado faz o daemon cair nos padrões em silêncio: os ajustes
+    # param de valer e só o journal conta. Aqui conta na cara.
+    from logitune import config as config_module
+
+    erro = config_module.validate()
+    if erro:
+        itens.append((False, "Configuração", erro))
+    elif config_module.config_path().is_file():
+        itens.append((True, "Configuração", str(config_module.config_path())))
+
     # -- estado do dispositivo ---------------------------------------
     # A roda do polegar desviada é o legado clássico de quem usou o Solaar:
     # ele liga o desvio (thumb-scroll-mode) e, desinstalado sem restaurar,

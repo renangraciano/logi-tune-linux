@@ -337,3 +337,77 @@ class TestLimiaresConfiguraveis:
         destino = tmp_path / "config.json"
         Config(gestures={"drag_units": 250}).save(destino)
         assert load(destino).gesture_thresholds().drag_units == 250
+
+
+class TestInterruptorDeGestos:
+    """O interruptor precisa desligar de verdade, não só parecer desligado."""
+
+    def test_ligados_por_padrao(self):
+        from logitune.config import Config
+
+        # Quem escreveu um mapa de gestos já disse o que queria; exigir uma
+        # segunda confirmação faria o recurso parecer quebrado.
+        assert Config().gestures_enabled is True
+
+    def test_desligar_pela_configuracao(self):
+        from logitune.config import Config
+
+        assert Config(gestures={"enabled": False}).gestures_enabled is False
+
+    def test_enabled_nao_e_lido_como_limiar(self, caplog):
+        from logitune.config import Config
+
+        limiares = Config(gestures={"enabled": True, "drag_units": 300}).gesture_thresholds()
+        assert limiares.drag_units == 300
+        assert "enabled" not in caplog.text
+
+    def test_roundtrip_json(self, tmp_path):
+        from logitune.config import Config, load
+
+        destino = tmp_path / "config.json"
+        Config(gestures={"enabled": False}).save(destino)
+        assert load(destino).gestures_enabled is False
+
+
+class TestDaemonComGestosDesligados:
+    def _daemon(self, config):
+        from logitune.daemon.service import Daemon
+
+        class DispositivoFalso:
+            name = "Mouse falso"
+            hidpp = None
+            controls = None
+
+        return Daemon(config, DispositivoFalso())
+
+    def test_botao_de_gestos_fica_de_fabrica(self):
+        """Desligado quer dizer desligado: nem o toque dispara.
+
+        Deixar o toque valendo faria o botão continuar fazendo algo que o
+        usuário pediu para desligar.
+        """
+        from logitune.config import Config, Settings
+
+        config = Config(gestures={"enabled": False})
+        daemon = self._daemon(config)
+        settings = Settings(bindings={"0x1A0": {"tap": "system.overview"}})
+        cliques, gestos = daemon._resolve_bindings(settings)
+        assert cliques == {}
+        assert gestos == {}
+
+    def test_botao_de_clique_nao_e_afetado(self):
+        """Desligar gestos não pode desligar um botão que nunca teve gesto."""
+        from logitune.config import Config, Settings
+
+        daemon = self._daemon(Config(gestures={"enabled": False}))
+        settings = Settings(bindings={"0x53": "system.overview"})
+        cliques, _ = daemon._resolve_bindings(settings)
+        assert list(cliques) == [0x53]
+
+    def test_sighup_marca_a_recarga(self):
+        from logitune.config import Config
+
+        daemon = self._daemon(Config())
+        assert daemon._reload_requested is False
+        daemon.request_reload()
+        assert daemon._reload_requested is True
