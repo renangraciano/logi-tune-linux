@@ -18,6 +18,7 @@ from logitune import config as config_module
 from logitune.actions import ActionError, ResolvedAction, UnknownAction, resolve
 from logitune.actions.backends import keys as keys_backend
 from logitune.actions.gestures import Feedback, Gesture, GestureRecognizer
+from logitune.actions.power import BatteryGate
 from logitune.actions.switcher import AppSwitcher, DetentCounter
 from logitune.hidpp.features.haptic import Waveform
 from logitune.hidpp.notifications import ThumbWheelStatus
@@ -129,6 +130,7 @@ class Daemon:
         #: Junta as unidades de giro em detents; a proporção sai do
         #: próprio dispositivo em _setup_wheel.
         self._detents = DetentCounter()
+        self._power = BatteryGate(config.haptics_below)
         self._recognizer = GestureRecognizer(
             config.gesture_thresholds(),
             bound=lambda cid: self._gestures.get(cid, {}).keys(),
@@ -161,6 +163,8 @@ class Daemon:
         logger.info("configuração recarregada")
         self._recognizer.thresholds = self.config.gesture_thresholds()
         self._switcher.idle_ms = self.config.switcher_idle_ms
+        self._power.threshold = self.config.haptics_below
+        self._power.invalidate()
         # Forçar a reavaliação: sem isto o perfil de mesmo nome seria
         # considerado já aplicado e nada mudaria.
         self.state.profile_name = ""
@@ -407,6 +411,8 @@ class Daemon:
         """
         if self.device.haptic is None:
             return
+        if not self._power.allows_haptics(self.device):
+            return
         waveform = Waveform.TICK if kind is Feedback.CROSSED else Waveform.CLICK
         try:
             self.device.haptic.play(int(waveform))
@@ -435,7 +441,7 @@ class Daemon:
     def _run(self, action: ResolvedAction) -> None:
         """Executa uma ação sem deixar que ela derrube o daemon."""
         try:
-            action.run(self.device)
+            action.run(self.device, power=self._power)
         except ActionError as exc:
             logger.error("a ação %s falhou: %s", action.spec.id, exc)
         except Exception:  # noqa: BLE001 - um backend novo não pode matar o laço

@@ -56,12 +56,14 @@ GNOME 46, X11.
 | ✅ | Button remapping and diversion | `0x1B04` |
 | ✅ | Easy-Switch between three hosts | `0x1814` `0x1815` |
 | ✅ | **Haptic feedback — 15 waveforms** | `0x19B0` |
-| ✅ | Per-application profiles (X11) | — |
+| ✅ | **Thumb wheel as an application switcher** | `0x2150` |
+| ✅ | Per-application profiles, with a UI (X11) | — |
 | ✅ | **53 actions to bind buttons to** | — |
 | ✅ | Gestures on a held button (opt-in) | `0x1B04` |
+| ✅ | Silence the haptic motor on low battery | `0x1004` |
 | 🚧 | Actions Ring radial menu | `0x01A0` |
 
-## Two things you will not find elsewhere
+## Three things you will not find elsewhere
 
 **The haptic motor works.** Feature `0x19B0` was undocumented. Probing the
 hardware established that function `0x04` plays a waveform, that indices 0–14
@@ -83,13 +85,24 @@ logitune watch 0x01A0     # see the event arrive as you press it
 Between the button and the motor, both hardware halves of the Actions Ring are
 solved. What is left is drawing the radial menu — see the [roadmap](#roadmap).
 
+**One button can carry seven functions.** Every divertable button reports raw
+movement while held, so tap, double tap, hold and drag in four directions are
+all distinguishable — against one function per button in the official app,
+which is a limit of their software and not of the hardware. The thresholds were
+measured rather than guessed; see [Gestures](#gestures-optional).
+
 ## Install
 
 ```bash
-# Dependencies (python3-xlib is only for per-application profiles)
-sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-xlib pipx
+git clone https://github.com/renangraciano/logi-tune-linux.git
+cd logi-tune-linux
 
-# Device access without root (mouse + /dev/uinput for key synthesis)
+# Dependencies. python3-xlib is only for per-application profiles;
+# gettext only for translations.
+sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-evdev \
+                 python3-xlib gettext pipx
+
+# Device access without root: the mouse, and /dev/uinput for key synthesis.
 sudo scripts/install-udev.sh
 
 # Install. --system-site-packages lets the isolated environment reach the
@@ -97,11 +110,19 @@ sudo scripts/install-udev.sh
 pipx install --system-site-packages .
 
 # Add it to the application menu. pipx installs the commands but not a
-# desktop entry, so without this the GUI never shows up in your launcher.
+# desktop entry, so without this the app never shows up in your launcher.
 scripts/install-desktop.sh
+
+# Start the background service. Button actions, gestures and profiles are
+# all applied by it — without it the app still works, but a button you
+# bind does nothing.
+cp packaging/systemd/logitune-daemon.service ~/.config/systemd/user/
+systemctl --user enable --now logitune-daemon
 ```
 
-Unplug and replug the receiver after installing the udev rule.
+**Unplug and replug the receiver** after installing the udev rule, then run
+`logitune doctor` — it checks every one of the steps above and names the fix
+for whatever is missing.
 
 > **Why pipx?** Ubuntu 24.04 and other recent distributions mark the system
 > Python as externally managed ([PEP 668](https://peps.python.org/pep-0668/)),
@@ -110,15 +131,57 @@ Unplug and replug the receiver after installing the udev rule.
 > `PATH`. If `~/.local/bin` is not in `PATH`, run `pipx ensurepath` and open a
 > new shell.
 
+### Updating
+
+```bash
+cd logi-tune-linux
+git pull
+pipx install --system-site-packages --force .
+systemctl --user restart logitune-daemon
+```
+
+`--force` is what makes pipx replace the existing install instead of refusing
+because the package is already there. Your settings live in
+`~/.config/logitune/config.json` and are not touched.
+
+Re-run `sudo scripts/install-udev.sh` as well if `logitune doctor` complains
+about device access after an update — the rule changes rarely, but when it does
+it needs reinstalling and a replug.
+
+### Uninstalling
+
+```bash
+systemctl --user disable --now logitune-daemon
+rm ~/.config/systemd/user/logitune-daemon.service
+
+scripts/install-desktop.sh --uninstall   # menu entry and icon
+pipx uninstall logi-tune-linux
+sudo rm /etc/udev/rules.d/70-logitune.rules
+```
+
+Settings stay in `~/.config/logitune/` unless you remove it yourself.
+
+**Anything the mouse itself is holding — a diverted button, a diverted thumb
+wheel, a remapped control — is stored in its firmware and outlives the
+uninstall.** Run `logitune button <cid> --reset` and `logitune scroll
+--no-thumb-divert` before removing the package, or the mouse keeps behaving as
+configured with nothing left to explain why. This is the same trap Solaar
+leaves behind, described under [known limitations](#known-limitations).
+
 ## Use
 
 There are three ways in, and they share the same settings.
 
 **The app.** Search for *Logi Tune Linux* in your application menu, or run
-`logitune-gui`. Sliders and switches apply to the mouse as you move them.
+`logitune-gui`. Click a button on the picture of the mouse to choose what it
+does, add a profile per application, and set the gesture and thumb-wheel
+timings. Pointer and scrolling changes apply to the mouse as you move the
+slider; everything else is written to the configuration and picked up by the
+daemon without a restart.
 
-**The daemon**, running in the background, reconfiguring the mouse per
-application. See [below](#per-application-profiles).
+**The daemon**, in the background, applying button actions, gestures and
+per-application profiles. Installed above; `systemctl --user status
+logitune-daemon` shows how it is doing.
 
 **The command line**, for scripting and for the reverse-engineering commands:
 
@@ -127,6 +190,7 @@ logitune                      # summary
 logitune dpi 1600             # pointer sensitivity
 logitune smartshift 40        # ratchet threshold
 logitune scroll --invert
+logitune scroll --no-thumb-divert         # give horizontal scrolling back
 logitune buttons              # list controls and their mappings
 logitune button back --remap 0x0052
 logitune hosts                # paired computers
@@ -134,29 +198,36 @@ logitune host 2               # move the mouse to channel 2
 logitune haptic 3             # play one vibration pattern
 logitune actions              # the catalogue a button can be bound to
 logitune actions --run media.play_pause   # try one out
-logitune doctor               # check permissions and dependencies
+logitune watch --raw-xy       # measure movement, to calibrate gestures
+logitune watch --thumb        # watch the thumb wheel report rotation
+logitune doctor               # check permissions, dependencies and device state
 logitune-gui                  # graphical interface
 ```
 
+Every command takes `--help`, and `logitune doctor` is the one to reach for
+first when something does not work: it checks the udev rule, device access,
+`/dev/uinput`, the session type, the configuration file, the state of the mouse
+and whether the daemon is running, and names the fix for each.
+
 ```
-MX Master 4 (receptor)
-  Bateria      ██████████░░░░░░░░░░ 50% (descarregando)
-  Sensibilidade 2800 DPI (padrão 1000, faixa 200–8000)
-  SmartShift   modo roda livre, ponto de virada 32 (padrão 70)
-  Roda         resolução normal
-  Roda polegar invertida, desviada
-  Host ativo   canal 1 (receptor Bolt)
+MX Master 4 (receiver)
+  Battery      ██████████░░░░░░░░░░ 50% (discharging)
+  Sensitivity  2800 DPI (default 1000, range 200–8000)
+  SmartShift   ratchet mode, threshold 32 (default 70)
+  Wheel        normal resolution
+  Thumb wheel  inverted
+  Active host  channel 1 (Bolt receiver)
 ```
 
 ### Per-application profiles
 
 The daemon watches the focused window and reconfigures the mouse as you switch
-apps — a lower DPI in the browser, a locked ratchet in your editor.
+apps — a lower DPI in the browser, a locked ratchet in your editor. Add a
+profile in the app with the **+** button beside the profile tabs, or write one
+by hand:
 
 ```bash
 logitune-daemon --write-example   # creates ~/.config/logitune/config.json
-cp packaging/systemd/logitune-daemon.service ~/.config/systemd/user/
-systemctl --user enable --now logitune-daemon
 ```
 
 ```json
@@ -299,6 +370,18 @@ apart from a wheel that is diverted on purpose.
 Measure your own with `logitune watch <cid> --raw-xy`, which prints a
 per-button summary of duration, displacement and sample count.
 
+### Power saving
+
+The haptic motor is the hungriest part after the sensor. Under *Power saving*
+you can silence it below a given charge:
+
+```json
+"power": { "haptics_below": 20 }
+```
+
+Zero turns the saving off. While the mouse is charging the motor buzzes
+regardless: plugged in, there is nothing to save.
+
 The daemon blocks in `select` on the X and hidraw descriptors — no polling, no
 CPU at rest. It reloads on `SIGHUP` (`systemctl --user reload logitune-daemon`),
 so a configuration change applies without dropping the service and losing the
@@ -394,11 +477,14 @@ hardware to get started.
   else works. The daemon says so on startup.
 - **Running alongside Solaar** works, but both write to the same device and can
   undo each other. Use one at a time.
-- **Coming from Solaar?** It diverts the thumb wheel (`thumb-scroll-mode`) and
-  does not restore it when uninstalled. The flag lives in the mouse's firmware,
-  so the wheel keeps reporting to software that is no longer there and simply
-  stops scrolling. `logitune doctor` detects this; `logitune scroll
-  --no-thumb-divert` fixes it.
+- **Some settings live in the mouse, not on your computer.** A diverted
+  button, a diverted thumb wheel and a firmware remap are all stored on the
+  device and survive uninstalling anything — including this. Solaar is the
+  usual way people meet this: it diverts the thumb wheel (`thumb-scroll-mode`)
+  and does not restore it when removed, so the wheel keeps reporting to
+  software that is no longer there and simply stops scrolling. `logitune
+  doctor` tells that apart from a wheel diverted on purpose, and `logitune
+  scroll --no-thumb-divert` fixes it.
 - **Wheel mode is volatile**: with SmartShift active the firmware switches
   between ratchet and freewheel on its own. Forcing a mode lasts until the next
   fast scroll.

@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: logi-tune-linux 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/renangraciano/logi-tune-linux/"
 "issues\n"
-"POT-Creation-Date: 2026-09-01 16:28-0300\n"
+"POT-Creation-Date: 2026-09-01 16:38-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -294,7 +294,7 @@ msgstr ""
 msgid "Pattern (0–14)"
 msgstr ""
 
-#: logitune/actions/catalog.py:229 logitune/actions/spec.py:63
+#: logitune/actions/catalog.py:229 logitune/actions/spec.py:64
 msgid "Open an application"
 msgstr ""
 
@@ -366,35 +366,35 @@ msgstr ""
 msgid "drag right"
 msgstr ""
 
-#: logitune/actions/spec.py:56
+#: logitune/actions/spec.py:57
 msgid "System"
 msgstr ""
 
-#: logitune/actions/spec.py:57
+#: logitune/actions/spec.py:58
 msgid "Windows and workspaces"
 msgstr ""
 
-#: logitune/actions/spec.py:58
+#: logitune/actions/spec.py:59
 msgid "Media"
 msgstr ""
 
-#: logitune/actions/spec.py:59
+#: logitune/actions/spec.py:60
 msgid "Meeting controls"
 msgstr ""
 
-#: logitune/actions/spec.py:60
+#: logitune/actions/spec.py:61
 msgid "Editing"
 msgstr ""
 
-#: logitune/actions/spec.py:61
+#: logitune/actions/spec.py:62
 msgid "Browser"
 msgstr ""
 
-#: logitune/actions/spec.py:62
+#: logitune/actions/spec.py:63
 msgid "Mouse"
 msgstr ""
 
-#: logitune/actions/spec.py:64
+#: logitune/actions/spec.py:65
 msgid "Custom"
 msgstr ""
 
@@ -947,7 +947,7 @@ msgstr ""
 msgid "high-resolution scrolling"
 msgstr ""
 
-#: logitune/cli.py:1044 logitune/ui/window.py:952
+#: logitune/cli.py:1044 logitune/ui/window.py:985
 msgid "invert the thumb wheel"
 msgstr ""
 
@@ -1538,63 +1538,83 @@ msgid "What rolling does"
 msgstr ""
 
 #: logitune/ui/window.py:808
-msgid "Confirm after"
+msgid "Silence haptics below"
 msgstr ""
 
 #: logitune/ui/window.py:810
+msgid ""
+"Battery percentage under which the motor stops buzzing. Zero keeps it always "
+"on"
+msgstr ""
+
+#: logitune/ui/window.py:817
+msgid "Confirm after"
+msgstr ""
+
+#: logitune/ui/window.py:819
 msgid ""
 "How long the switcher waits, once the wheel stops, before bringing the "
 "chosen window forward"
 msgstr ""
 
-#: logitune/ui/window.py:838
+#: logitune/ui/window.py:834
+msgid "Power saving"
+msgstr ""
+
+#: logitune/ui/window.py:836
+msgid ""
+"The haptic motor is the hungriest part after the sensor, and buzzing on "
+"every gesture has a cost."
+msgstr ""
+
+#: logitune/ui/window.py:871
 msgid "change the thumb wheel"
 msgstr ""
 
-#: logitune/ui/window.py:862
+#: logitune/ui/window.py:895
 msgid "Computers"
 msgstr ""
 
-#: logitune/ui/window.py:863
+#: logitune/ui/window.py:896
 msgid "The mouse stores three pairings and switches between them."
 msgstr ""
 
-#: logitune/ui/window.py:869
+#: logitune/ui/window.py:902
 msgid "connected"
 msgstr ""
 
-#: logitune/ui/window.py:874
+#: logitune/ui/window.py:907
 msgid "Switch"
 msgstr ""
 
-#: logitune/ui/window.py:891
+#: logitune/ui/window.py:924
 msgid "Could not {}."
 msgstr ""
 
-#: logitune/ui/window.py:914
+#: logitune/ui/window.py:947
 msgid "apply the DPI"
 msgstr ""
 
-#: logitune/ui/window.py:925
+#: logitune/ui/window.py:958
 msgid "adjust SmartShift"
 msgstr ""
 
-#: logitune/ui/window.py:932
+#: logitune/ui/window.py:965
 msgid "change the wheel mode"
 msgstr ""
 
-#: logitune/ui/window.py:939
+#: logitune/ui/window.py:972
 msgid "change the scroll resolution"
 msgstr ""
 
-#: logitune/ui/window.py:945
+#: logitune/ui/window.py:978
 msgid "invert the wheel"
 msgstr ""
 
-#: logitune/ui/window.py:972
+#: logitune/ui/window.py:1005
 msgid "Switching computer… the mouse will disconnect from here."
 msgstr ""
 
-#: logitune/ui/window.py:975
+#: logitune/ui/window.py:1008
 msgid "switch computer"
 msgstr ""

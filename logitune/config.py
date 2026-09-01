@@ -202,6 +202,26 @@ class Config:
     #: mesmo motivo que os limiares de gesto.
     wheel: dict[str, Any] = field(default_factory=dict)
 
+    #: Economia de energia. Fica fora dos perfis: descreve o cuidado com o
+    #: dispositivo, não o aplicativo em foco.
+    power: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def haptics_below(self) -> int:
+        """Abaixo de que carga o motor háptico cala. Zero desliga a economia."""
+        from logitune.actions.power import DEFAULT_THRESHOLD
+
+        bruto = self.power.get("haptics_below", DEFAULT_THRESHOLD)
+        try:
+            valor = int(bruto)
+        except (TypeError, ValueError):
+            logger.warning("haptics_below inválido ignorado: %r", bruto)
+            return DEFAULT_THRESHOLD
+        if not 0 <= valor <= 100:
+            logger.warning("haptics_below fora da faixa (0–100): %s", valor)
+            return DEFAULT_THRESHOLD
+        return valor
+
     @property
     def switcher_idle_ms(self) -> int:
         """Quanto tempo sem girar até o alternador confirmar.
@@ -266,6 +286,7 @@ class Config:
             "profiles": [asdict(p) for p in self.profiles],
             "gestures": dict(self.gestures),
             "wheel": dict(self.wheel),
+            "power": dict(self.power),
         }
 
     @classmethod
@@ -303,6 +324,7 @@ class Config:
             profiles=profiles,
             gestures=dict(data.get("gestures", {}) or {}),
             wheel=dict(data.get("wheel", {}) or {}),
+            power=dict(data.get("power", {}) or {}),
         )
 
     def save(self, path: Path | None = None) -> Path:
