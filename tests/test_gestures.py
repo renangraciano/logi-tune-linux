@@ -262,3 +262,78 @@ class TestCalibragemReal:
     def test_todo_arrasto_foi_reconhecido(self):
         arrastos = [m for m in self.MEDIDAS if m[3] >= 29]
         assert all(m[4].is_drag for m in arrastos)
+
+
+class TestSemLacoOcupado:
+    """O prazo encurta o sono do daemon; ele não pode encurtá-lo para sempre.
+
+    Um prazo que fica preso em zero faria o select voltar na hora, sem parar,
+    e o daemon queimaria CPU enquanto um botão estivesse pressionado.
+    """
+
+    def test_o_prazo_do_hold_some_depois_de_disparar(self):
+        r = _reconhecedor()
+        r.press(CID, now=0.0)
+        assert r.next_deadline(now=0.5) == pytest.approx(0.0)
+        r.tick(now=0.5)
+        assert r.next_deadline(now=0.5) is None
+
+    def test_o_prazo_do_duplo_toque_some_depois_de_disparar(self):
+        r = _reconhecedor()
+        r.press(CID, now=0.0)
+        r.release(CID, now=0.1)
+        assert r.next_deadline(now=0.5) == pytest.approx(0.0)
+        r.tick(now=0.5)
+        assert r.next_deadline(now=0.5) is None
+
+    def test_segurar_por_muito_tempo_nao_reagenda(self):
+        r = _reconhecedor()
+        r.press(CID, now=0.0)
+        r.tick(now=0.6)
+        # Ainda pressionado dez segundos depois, e sem nada a esperar.
+        assert r.next_deadline(now=10.0) is None
+        assert r.tick(now=10.0) == []
+
+    def test_arrasto_em_curso_nao_reagenda(self):
+        r = _reconhecedor()
+        r.press(CID, now=0.0)
+        for i in range(5):
+            r.movement(100, 0, now=0.01 * (i + 1))
+        assert r.next_deadline(now=5.0) is None
+
+
+class TestLimiaresConfiguraveis:
+    """Os limiares descrevem a mão de quem usa, então precisam ser ajustáveis
+    — e uma configuração errada não pode deixar o daemon sem gestos."""
+
+    def test_valores_configurados_valem(self):
+        from logitune.config import Config
+
+        limiares = Config(gestures={"drag_units": 300, "hold_ms": 700}).gesture_thresholds()
+        assert limiares.drag_units == 300
+        assert limiares.hold_ms == 700
+        # O que não foi dito continua no padrão medido.
+        assert limiares.double_tap_ms == 400
+
+    @pytest.mark.parametrize(
+        "gestures",
+        [
+            {"nao_existe": 1},
+            {"drag_units": "abc"},
+            {"drag_units": -5},
+            {"hold_ms": 0},
+        ],
+    )
+    def test_configuracao_ruim_cai_no_padrao(self, gestures):
+        from logitune.config import Config
+
+        limiares = Config(gestures=gestures).gesture_thresholds()
+        assert limiares.drag_units == 200
+        assert limiares.hold_ms == 500
+
+    def test_roundtrip_json(self, tmp_path):
+        from logitune.config import Config, load
+
+        destino = tmp_path / "config.json"
+        Config(gestures={"drag_units": 250}).save(destino)
+        assert load(destino).gesture_thresholds().drag_units == 250

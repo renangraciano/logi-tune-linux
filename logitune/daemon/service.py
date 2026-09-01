@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from logitune import config as config_module
 from logitune.actions import ActionError, ResolvedAction, UnknownAction, resolve
 from logitune.actions.backends import keys as keys_backend
+from logitune.actions.gestures import Feedback, Gesture, GestureRecognizer
+from logitune.hidpp.features.haptic import Waveform
 from logitune.config import Config, Settings
 from logitune.daemon.focus import FocusWatcher, Window
 from logitune.device import LogitechDevice, close_devices, discover_devices
@@ -112,66 +114,90 @@ class Daemon:
         self._running = True
         #: Botões que desviamos e precisamos restaurar ao sair.
         self._diverted: list[int] = []
-        #: CID para a ação já resolvida, do perfil ativo.
+        #: Botões que disparam no clique, sem gesto: CID para ação.
         self._actions: dict[int, ResolvedAction] = {}
+        #: Botões com gestos: CID para gesto para ação.
+        self._gestures: dict[int, dict[Gesture, ResolvedAction]] = {}
+        self._recognizer = GestureRecognizer(
+            config.gesture_thresholds(),
+            bound=lambda cid: self._gestures.get(cid, {}).keys(),
+            feedback=self._haptic_feedback,
+        )
 
     # -- ciclo de vida -------------------------------------------------
 
     def stop(self, *_args) -> None:
         self._running = False
 
-    def _resolve_bindings(self, settings: Settings) -> dict[int, ResolvedAction]:
+    def _resolve_bindings(
+        self, settings: Settings
+    ) -> tuple[dict[int, ResolvedAction], dict[int, dict[Gesture, ResolvedAction]]]:
         """Traduz a configuração em ações prontas para rodar.
 
         O que não resolve fica de fora, e o botão mantém a função de fábrica.
         Essa é a escolha deliberada: um botão desviado cuja ação falha não faz
         nada e não avisa, o que é pior do que um botão que continua clicando.
         """
-        resolvidas: dict[int, ResolvedAction] = {}
+        cliques: dict[int, ResolvedAction] = {}
+        gestos: dict[int, dict[Gesture, ResolvedAction]] = {}
 
-        for cid, binding in settings.binding_pairs():
-            if binding.gestures and binding.press is None:
-                logger.info(
-                    "botão 0x%04X tem gestos configurados; por enquanto só o "
-                    "'tap' dispara, no clique",
-                    cid,
-                )
-            press = binding.on_press
-            if press is None:
-                continue
-
+        def preparar(cid: int, binding, gesto: Gesture | None) -> ResolvedAction | None:
+            onde = f"botão 0x{cid:04X}" + (f" ({gesto.label})" if gesto else "")
             try:
-                acao = resolve(press)
+                acao = resolve(binding)
             except UnknownAction as exc:
-                logger.warning("botão 0x%04X: %s", cid, exc)
-                continue
+                logger.warning("%s: %s", onde, exc)
+                return None
 
             disponivel = acao.available()
             if not disponivel.usable:
                 logger.warning(
-                    "botão 0x%04X segue de fábrica: %s não roda aqui (%s)",
-                    cid, acao.label, disponivel.reason,
+                    "%s segue de fábrica: %s não roda aqui (%s)",
+                    onde, acao.label, disponivel.reason,
                 )
-                continue
+                return None
             if not disponivel.ok:
-                logger.info("botão 0x%04X → %s (%s)", cid, acao.label, disponivel.reason)
+                logger.info("%s → %s (%s)", onde, acao.label, disponivel.reason)
+            return acao
 
-            resolvidas[cid] = acao
+        for cid, binding in settings.binding_pairs():
+            if binding.gestures:
+                # Um botão com gestos precisa do reconhecedor, então o clique
+                # direto não se aplica nem quando há um "press" configurado.
+                preparadas = {
+                    gesto: acao
+                    for gesto, acao in (
+                        (g, preparar(cid, b, g)) for g, b in binding.gestures.items()
+                    )
+                    if acao is not None
+                }
+                if preparadas:
+                    gestos[cid] = preparadas
+                continue
 
-        return resolvidas
+            if binding.press is None:
+                continue
+            acao = preparar(cid, binding.press, None)
+            if acao is not None:
+                cliques[cid] = acao
+
+        return cliques, gestos
 
     def _setup_actions(self, settings: Settings) -> None:
         """Desvia os botões que têm ação e libera os que não têm mais."""
         if self.device.controls is None:
             return
 
-        desired = self._resolve_bindings(settings)
+        cliques, gestos = self._resolve_bindings(settings)
+        desired = {**cliques, **gestos}
         controls = {c.control_id: c for c in self.device.controls.list_controls()}
 
         for cid in list(self._diverted):
             if cid not in desired:
                 try:
-                    self.device.controls.set_reporting(cid, diverted=False)
+                    # O raw_xy cai junto: deixá-lo ligado faria o mouse
+                    # continuar mandando movimento para ninguém.
+                    self.device.controls.set_reporting(cid, diverted=False, raw_xy=False)
                 except (HidppError, NoResponse):
                     logger.warning("não consegui liberar o botão 0x%04X", cid)
                 else:
@@ -187,14 +213,22 @@ class Daemon:
                 continue
             if cid in self._diverted:
                 continue
+            # Só os botões com gestos pedem movimento: ligar raw_xy num botão
+            # de clique seria tráfego e latência sem uso.
+            quer_movimento = cid in gestos
             try:
-                self.device.controls.set_reporting(cid, diverted=True)
+                self.device.controls.set_reporting(
+                    cid, diverted=True, raw_xy=quer_movimento
+                )
             except (HidppError, NoResponse) as exc:
                 logger.warning("não consegui desviar %s: %s", control.label, exc)
             else:
                 self._diverted.append(cid)
 
-        self._actions = desired
+        self._actions = cliques
+        self._gestures = gestos
+        # Uma troca de perfil invalida qualquer pressionada em andamento.
+        self._recognizer.reset()
 
     def restore(self) -> None:
         """Devolve os botões desviados ao comportamento normal.
@@ -205,7 +239,7 @@ class Daemon:
             return
         for cid in self._diverted:
             try:
-                self.device.controls.set_reporting(cid, diverted=False)
+                self.device.controls.set_reporting(cid, diverted=False, raw_xy=False)
             except (HidppError, NoResponse) as exc:
                 logger.error("o botão 0x%04X ficou desviado: %s", cid, exc)
         self._diverted.clear()
@@ -228,9 +262,41 @@ class Daemon:
         self.state.profile_name = name
         self.state.window = window
 
+    def _haptic_feedback(self, kind: Feedback, gesture: Gesture) -> None:
+        """Vibra para confirmar um gesto.
+
+        É o que torna o gesto usável sem olhar para a tela: um toque curto
+        quando a direção é reconhecida, e outro quando a ação dispara.
+        """
+        if self.device.haptic is None:
+            return
+        waveform = Waveform.TICK if kind is Feedback.CROSSED else Waveform.CLICK
+        try:
+            self.device.haptic.play(int(waveform))
+        except (HidppError, NoResponse, OSError, ValueError) as exc:
+            logger.debug("não consegui vibrar: %s", exc)
+
+    def _dispatch_gestures(self, reconhecidos) -> None:
+        for reconhecido in reconhecidos:
+            acao = self._gestures.get(reconhecido.cid, {}).get(reconhecido.gesture)
+            if acao is None:
+                logger.debug(
+                    "0x%04X: %s sem ação", reconhecido.cid, reconhecido.gesture.label
+                )
+                continue
+            logger.info(
+                "botão 0x%04X %s → %s",
+                reconhecido.cid, reconhecido.gesture.label, acao.label,
+            )
+            self._run(acao)
+
     def _fire(self, cid: int, action: ResolvedAction) -> None:
-        """Executa a ação de um botão sem deixar que ela derrube o daemon."""
+        """Executa a ação de um botão de clique."""
         logger.info("botão 0x%04X → %s", cid, action.label)
+        self._run(action)
+
+    def _run(self, action: ResolvedAction) -> None:
+        """Executa uma ação sem deixar que ela derrube o daemon."""
         try:
             action.run(self.device)
         except ActionError as exc:
@@ -252,15 +318,29 @@ class Daemon:
             if notification is None:
                 return
 
+            movement = self.listener.as_raw_movement(notification)
+            if movement is not None:
+                self._dispatch_gestures(
+                    self._recognizer.movement(movement.dx, movement.dy)
+                )
+                continue
+
             event = self.listener.as_button_event(notification)
             if event is None:
                 logger.debug("notificação: %s", notification)
                 continue
 
             for cid in event.just_pressed:
+                if cid in self._gestures:
+                    self._recognizer.press(cid)
+                    continue
                 action = self._actions.get(cid)
                 if action is not None:
                     self._fire(cid, action)
+
+            for cid in event.just_released:
+                if cid in self._gestures:
+                    self._dispatch_gestures(self._recognizer.release(cid))
 
         logger.debug("limite de relatórios por ciclo atingido")
 
@@ -295,13 +375,20 @@ class Daemon:
         try:
             while self._running:
                 watched = [device_fd] + ([focus_fd] if focus_fd is not None else [])
+                # Um gesto que depende do tempo — o hold, a janela do duplo
+                # toque — nunca chegaria na hora se o laço dormisse o segundo
+                # inteiro esperando um descritor falar.
+                prazo = self._recognizer.next_deadline()
+                espera = 1.0 if prazo is None else min(1.0, prazo)
                 try:
-                    ready, _, _ = select.select(watched, [], [], 1.0)
+                    ready, _, _ = select.select(watched, [], [], espera)
                 except InterruptedError:
                     continue
                 except OSError as exc:
                     logger.error("o dispositivo desapareceu: %s", exc)
                     return 1
+
+                self._dispatch_gestures(self._recognizer.tick())
 
                 if focus_fd is not None and focus_fd in ready:
                     if self.focus.drain_events():
