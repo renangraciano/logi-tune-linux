@@ -18,6 +18,7 @@ from logitune.config import Match, Profile, Settings  # noqa: E402
 from logitune.i18n import _  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
+from logitune.ui.mouse_view import MouseHotspotView  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
@@ -303,17 +304,35 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         controls = device.controls.list_controls()
         remappable = [c for c in controls if c.is_remappable]
-        if not remappable:
+        divertable = [c for c in controls if c.is_divertable]
+        if not divertable and not remappable:
             return
 
         group = Adw.PreferencesGroup(
             title=_("Buttons"),
-            description=_("Choose what each programmable button does."),
+            description=_("Click a button on the mouse, or pick one from the list."),
         )
 
         self._button_rows = {}
         self._button_controls = {}
-        divertable = [c for c in controls if c.is_divertable]
+
+        self._mouse_view = MouseHotspotView(
+            controls=divertable,
+            model_name=device.name,
+            binding_for=self._binding_for,
+            describe_binding=self._describe_binding,
+            on_configure=self._pick_action,
+            on_clear=self._clear_binding,
+        )
+        if self._mouse_view.available:
+            group.add(self._mouse_view)
+        else:
+            self._mouse_view = None
+
+        # A lista fica junto do desenho, não no lugar dele. O desenho é para
+        # reconhecer o botão pela posição; a lista é o que garante que nenhum
+        # botão fique inalcançável — nem os que não têm lugar no desenho, como
+        # o gesto virtual — e é o único caminho por teclado e leitor de tela.
         for control in divertable:
             self._button_controls[control.control_id] = control
             group.add(self._make_button_row(control))
@@ -334,7 +353,8 @@ class LogituneWindow(Adw.ApplicationWindow):
             )
 
         page.add(group)
-        self._add_remap_group(page, device, controls, remappable)
+        if remappable:
+            self._add_remap_group(page, device, controls, remappable)
 
     # -- perfis --------------------------------------------------------
 
@@ -466,6 +486,9 @@ class LogituneWindow(Adw.ApplicationWindow):
         dialogo.present(self)
 
     def _refresh_all_button_rows(self) -> None:
+        mouse_view = getattr(self, "_mouse_view", None)
+        if mouse_view is not None:
+            mouse_view.refresh_all()
         for cid in list(self._button_rows):
             self._refresh_button_row_by_cid(cid)
 
@@ -525,6 +548,12 @@ class LogituneWindow(Adw.ApplicationWindow):
         quando o daemon está falando com o mouse ao mesmo tempo — a seção
         inteira desaparecia logo depois de atribuir uma ação.
         """
+        # Hotspots da visualização do mouse.
+        mouse_view = getattr(self, "_mouse_view", None)
+        if mouse_view is not None:
+            mouse_view.refresh_hotspot(cid)
+
+        # Linhas de botão legadas (remap group usa-as via _button_rows).
         row = self._button_rows.get(cid)
         if row is None:
             return
