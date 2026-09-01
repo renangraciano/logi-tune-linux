@@ -70,6 +70,22 @@ class TestCatalogo:
         assert vazias == [], f"sem tradução em {po.name}: {vazias[:5]}"
 
     @pytest.mark.parametrize("po", sorted(PO_DIR.glob("*.po")), ids=lambda p: p.stem)
+    def test_nenhuma_entrada_fuzzy(self, po: Path):
+        """O gettext ignora entradas fuzzy, então elas valem como ausentes.
+
+        O msgmerge marca assim tudo o que ele adivinhou por semelhança de
+        texto, e o palpite costuma ser errado: numa fusão real ele traduziu
+        "Calibration" como "Aplicativo". Sem esta checagem, o catálogo
+        parecia completo e a janela saía metade em cada idioma.
+        """
+        fuzzy = [
+            bloco.split("msgid ", 1)[1].split("\n")[0]
+            for bloco in po.read_text(encoding="utf-8").split("\n\n")
+            if "#, fuzzy" in bloco and "msgid " in bloco
+        ]
+        assert fuzzy == [], f"entradas fuzzy em {po.name}: {fuzzy[:5]}"
+
+    @pytest.mark.parametrize("po", sorted(PO_DIR.glob("*.po")), ids=lambda p: p.stem)
     def test_o_po_cobre_o_pot(self, po: Path):
         faltando = sorted(_mensagens(POT) - _mensagens(po))
         assert faltando == [], f"{po.name} não tem: {faltando[:5]}"
