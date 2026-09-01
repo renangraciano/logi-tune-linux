@@ -291,6 +291,10 @@ class Daemon:
             return
 
         logger.info("perfil %r para %s", name, window or "(sem janela)")
+        if window is not None:
+            # O título só aparece em depuração, ligada de propósito por quem
+            # está investigando algo.
+            logger.debug("janela em foco: %s", window.detailed)
         changes = apply_settings(self.device, settings)
         if changes:
             logger.info("  aplicado: %s", ", ".join(changes))
