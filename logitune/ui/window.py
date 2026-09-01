@@ -13,10 +13,10 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
-from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
+from logitune.actions import ButtonBinding, UnknownAction, resolve  # noqa: E402
 from logitune.config import Match, Profile, Settings  # noqa: E402
-from logitune.ui.action_picker import ActionPicker  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
+from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
@@ -536,21 +536,34 @@ class LogituneWindow(Adw.ApplicationWindow):
         )
 
     def _pick_action(self, control) -> None:
-        vinculo, _ = self._binding_for(control.control_id)
-        atual = vinculo.press if vinculo and vinculo.press else None
+        """Abre o editor do botão: uma ação, ou um gesto por movimento."""
+        chave = f"0x{control.control_id:04X}"
+        cid = control.control_id
 
-        def escolhido(novo: Binding) -> None:
-            chave = f"0x{control.control_id:04X}"
+        def ler() -> ButtonBinding | None:
+            config = self._store.load()
+            return dict(self._edited_settings(config).binding_pairs()).get(cid)
 
-            def gravar(config) -> None:
-                self._edited_settings(config).bindings[chave] = novo.to_json()
+        def gravar(vinculo: ButtonBinding | None) -> None:
+            def aplicar(config) -> None:
+                ajustes = self._edited_settings(config)
+                if vinculo is None or vinculo.is_empty:
+                    ajustes.bindings.pop(chave, None)
+                    # A chave antiga também precisa sair, senão o comando shell
+                    # dela continuaria valendo.
+                    ajustes.actions.pop(chave, None)
+                else:
+                    ajustes.bindings[chave] = vinculo.to_json()
 
-            self._store.update(gravar)
-            self._refresh_button_row_by_cid(control.control_id)
-            onde = self._profile_label(self._store.load())
-            self._toast(f"{control.label} em {onde}: {resolve(novo).label}")
+            self._store.update(aplicar)
+            self._refresh_button_row_by_cid(cid)
 
-        ActionPicker(escolhido, current=atual).present(self)
+        ButtonDialog(
+            control.label,
+            ler,
+            gravar,
+            gestures_enabled=self._store.load().gestures_enabled,
+        ).present(self)
 
     def _clear_binding(self, control) -> None:
         chave = f"0x{control.control_id:04X}"
