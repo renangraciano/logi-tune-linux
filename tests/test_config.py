@@ -190,3 +190,26 @@ class TestValidacao:
         destino = tmp_path / "config.json"
         destino.write_text("[1, 2, 3]")
         assert validate(destino) is not None
+
+
+class TestPrivacidadeDoLog:
+    """O daemon registra a janela em foco a cada troca. Guardar o título aí
+    transformaria o journal num histórico de navegação — e é justamente o
+    journal que se anexa a um relato de bug."""
+
+    def test_a_representacao_padrao_omite_o_titulo(self):
+        from logitune.daemon.focus import Window
+
+        janela = Window(wm_class="brave-browser", title="Resultado médico — Gmail")
+        assert str(janela) == "brave-browser"
+        assert "médico" not in str(janela)
+
+    def test_o_titulo_segue_disponivel_para_depuracao(self):
+        from logitune.daemon.focus import Window
+
+        janela = Window(wm_class="code", title="config.py")
+        assert "config.py" in janela.detailed
+
+    def test_o_titulo_continua_valendo_para_os_perfis(self):
+        # Omitir do log não pode quebrar o casamento por título.
+        assert Match(title=["Gmail"]).matches("brave", "Caixa de entrada — Gmail")
