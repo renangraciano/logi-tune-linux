@@ -7,10 +7,20 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="Licença: GPL v3" src="https://img.shields.io/badge/License-GPLv3-blue.svg"></a>
-  <a href="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml"><img alt="Testes" src="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml/badge.svg"></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue">
-  <img alt="Plataforma" src="https://img.shields.io/badge/platform-Linux-lightgrey">
+  <a href="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml"><img alt="Testes" src="https://img.shields.io/github/actions/workflow/status/renangraciano/logi-tune-linux/tests.yml?branch=main&label=testes&logo=github"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/releases/latest"><img alt="Versão" src="https://img.shields.io/github/v/release/renangraciano/logi-tune-linux?label=vers%C3%A3o&color=blue"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/renangraciano/logi-tune-linux/total?label=downloads&color=success"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/discussions"><img alt="Discussões" src="https://img.shields.io/github/discussions/renangraciano/logi-tune-linux?label=discuss%C3%B5es&color=blueviolet"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/issues"><img alt="Issues" src="https://img.shields.io/github/issues/renangraciano/logi-tune-linux?label=issues"></a>
+</p>
+
+<p align="center">
+  <a href="SECURITY.md"><img alt="Política de segurança" src="https://img.shields.io/badge/seguran%C3%A7a-pol%C3%ADtica-informational"></a>
+  <a href="LICENSE"><img alt="Licença" src="https://img.shields.io/github/license/renangraciano/logi-tune-linux?label=licen%C3%A7a&color=blue"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white">
+  <img alt="Plataforma" src="https://img.shields.io/badge/plataforma-Linux-lightgrey?logo=linux&logoColor=white">
+  <a href="CONTRIBUTING.md"><img alt="PRs bem-vindos" src="https://img.shields.io/badge/PRs-bem--vindos-brightgreen"></a>
+  <img alt="Visitas" src="https://visitor-badge.laobi.icu/badge?page_id=renangraciano.logi-tune-linux&title=visitas&color=0e75b6">
 </p>
 
 <p align="center">

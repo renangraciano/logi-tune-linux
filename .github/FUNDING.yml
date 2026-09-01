@@ -1,0 +1,15 @@
+# Mostra o botão "Sponsor" no topo do repositório.
+#
+# Só as plataformas descomentadas aparecem, e o GitHub Sponsors exige que a
+# conta esteja inscrita no programa — sem isso a linha é ignorada em silêncio,
+# e o botão não aparece.
+github: [renangraciano]
+
+# Descomente e preencha o que existir. Uma linha com usuário errado leva quem
+# quis apoiar para uma página que não existe, o que é pior do que não ter.
+# ko_fi: usuario
+# buy_me_a_coffee: usuario
+# liberapay: usuario
+# open_collective: projeto
+# patreon: usuario
+# custom: ["https://exemplo.org/apoiar"]

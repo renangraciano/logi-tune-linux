@@ -7,11 +7,20 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/License-GPLv3-blue.svg"></a>
-  <a href="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml/badge.svg"></a>
-  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue">
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Linux-lightgrey">
-  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/renangraciano/logi-tune-linux/tests.yml?branch=main&label=tests&logo=github"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/renangraciano/logi-tune-linux?label=release&color=blue"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/renangraciano/logi-tune-linux/total?label=downloads&color=success"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/discussions"><img alt="Discussions" src="https://img.shields.io/github/discussions/renangraciano/logi-tune-linux?label=discussions&color=blueviolet"></a>
+  <a href="https://github.com/renangraciano/logi-tune-linux/issues"><img alt="Issues" src="https://img.shields.io/github/issues/renangraciano/logi-tune-linux?label=issues"></a>
+</p>
+
+<p align="center">
+  <a href="SECURITY.md"><img alt="Security policy" src="https://img.shields.io/badge/security-policy-informational"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/renangraciano/logi-tune-linux?label=license&color=blue"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Linux-lightgrey?logo=linux&logoColor=white">
+  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen"></a>
+  <img alt="Views" src="https://visitor-badge.laobi.icu/badge?page_id=renangraciano.logi-tune-linux&title=views&color=0e75b6">
 </p>
 
 <p align="center">
