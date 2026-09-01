@@ -15,6 +15,7 @@ from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from logitune.actions import ButtonBinding, UnknownAction, resolve  # noqa: E402
 from logitune.config import Match, Profile, Settings  # noqa: E402
+from logitune.i18n import _  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
@@ -56,7 +57,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
 
         refresh = Gtk.Button(icon_name="view-refresh-symbolic")
-        refresh.set_tooltip_text("Procurar dispositivos novamente")
+        refresh.set_tooltip_text(_("Search for devices again"))
         refresh.connect("clicked", lambda _b: self.reload())
         header.pack_end(refresh)
 
@@ -80,8 +81,8 @@ class LogituneWindow(Adw.ApplicationWindow):
 
     def _show_searching(self) -> None:
         status = Adw.StatusPage(
-            title="Procurando o mouse…",
-            description="Verificando os dispositivos Logitech conectados.",
+            title=_("Looking for the mouse…"),
+            description=_("Checking the connected Logitech devices."),
             icon_name="input-mouse-symbolic",
         )
         spinner = Gtk.Spinner(spinning=True, width_request=32, height_request=32)
@@ -90,13 +91,15 @@ class LogituneWindow(Adw.ApplicationWindow):
 
     def _show_not_found(self, detail: str = "") -> None:
         status = Adw.StatusPage(
-            title="Nenhum mouse Logitech encontrado",
+            title=_("No Logitech mouse found"),
             description=detail
-            or "Ligue o mouse e confira se as regras udev do logi-tune-linux "
-            "estão instaladas.",
+            or _(
+                "Switch the mouse on and check that the logi-tune-linux udev rules "
+                "are installed."
+            ),
             icon_name="dialog-question-symbolic",
         )
-        button = Gtk.Button(label="Procurar de novo", halign=Gtk.Align.CENTER)
+        button = Gtk.Button(label=_("Search again"), halign=Gtk.Align.CENTER)
         button.add_css_class("pill")
         button.add_css_class("suggested-action")
         button.connect("clicked", lambda _b: self.reload())
@@ -138,7 +141,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             # Sem isto, uma falha aqui deixaria a tela de "procurando" para
             # sempre: o GLib engole a exceção e nada troca o conteúdo.
             logger.exception("falha ao montar a interface")
-            self._show_not_found(f"O dispositivo foi encontrado, mas a leitura falhou: {exc}")
+            self._show_not_found(_("The device was found, but reading it failed: {}").format(exc))
             return False
 
         # O título só muda depois que a página existe, para que a janela nunca
@@ -191,23 +194,22 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         if falhas:
             self._toast(
-                f"Não foi possível ler: {', '.join(falhas)}. "
-                f"Atualize para tentar de novo."
+                _("Could not read: {}. Refresh to try again.").format(", ".join(falhas))
             )
 
     def _add_device_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
-        group = Adw.PreferencesGroup(title="Dispositivo")
+        group = Adw.PreferencesGroup(title=_("Device"))
         self._battery_row = None
 
         row = Adw.ActionRow(
             title=device.name,
-            subtitle=f"conexão {device.identity.connection}",
+            subtitle=_("connection: {}").format(device.identity.connection),
         )
         row.add_prefix(Gtk.Image.new_from_icon_name("input-mouse-symbolic"))
         group.add(row)
 
         if device.battery:
-            self._battery_row = Adw.ActionRow(title="Bateria")
+            self._battery_row = Adw.ActionRow(title=_("Battery"))
             self._battery_bar = Gtk.LevelBar(
                 min_value=0, max_value=100, width_request=140, valign=Gtk.Align.CENTER
             )
@@ -221,8 +223,8 @@ class LogituneWindow(Adw.ApplicationWindow):
         if device.dpi is None:
             return
         group = Adw.PreferencesGroup(
-            title="Ponteiro",
-            description="Quantos pontos por polegada o sensor reporta.",
+            title=_("Pointer"),
+            description=_("How many dots per inch the sensor reports."),
         )
 
         dpi_range = device.dpi.get_range()
@@ -230,32 +232,34 @@ class LogituneWindow(Adw.ApplicationWindow):
         step = dpi_range.step or 50
 
         row = Adw.SpinRow.new_with_range(dpi_range.minimum, dpi_range.maximum, step)
-        row.set_title("Sensibilidade (DPI)")
-        row.set_subtitle(f"padrão de fábrica: {state.default}")
+        row.set_title(_("Sensitivity (DPI)"))
+        row.set_subtitle(_("factory default: {}").format(state.default))
         row.set_value(state.current)
         row.connect("notify::value", self._on_dpi_changed)
         group.add(row)
         page.add(group)
 
     def _add_scroll_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
-        group = Adw.PreferencesGroup(title="Rolagem")
+        group = Adw.PreferencesGroup(title=_("Scrolling"))
         added = False
 
         if device.smartshift:
             state = device.smartshift.get_state()
 
             ratchet = Adw.SwitchRow(
-                title="Roda travada (ratchet)",
-                subtitle="Desligado, a roda gira livre por inércia",
+                title=_("Wheel locked (ratchet)"),
+                subtitle=_("Off, the wheel spins freely"),
             )
             ratchet.set_active(state.mode is WheelMode.RATCHET)
             ratchet.connect("notify::active", self._on_ratchet_toggled)
             group.add(ratchet)
 
             point = Adw.SpinRow.new_with_range(1, 255, 1)
-            point.set_title("Ponto de virada do SmartShift")
+            point.set_title(_("SmartShift threshold"))
             point.set_subtitle(
-                f"velocidade que solta o ratchet · padrão {state.default_auto_disengage}"
+                _("speed that releases the ratchet · default {}").format(
+                    state.default_auto_disengage
+                )
             )
             point.set_value(state.auto_disengage)
             point.connect("notify::value", self._on_smartshift_changed)
@@ -266,14 +270,14 @@ class LogituneWindow(Adw.ApplicationWindow):
             wheel_state = device.wheel.get_state()
 
             hires = Adw.SwitchRow(
-                title="Rolagem de alta resolução",
-                subtitle="Rolagem suave, pixel a pixel",
+                title=_("High-resolution scrolling"),
+                subtitle=_("Smooth, pixel-by-pixel scrolling"),
             )
             hires.set_active(wheel_state.high_resolution)
             hires.connect("notify::active", self._on_hires_toggled)
             group.add(hires)
 
-            invert = Adw.SwitchRow(title="Inverter direção da roda")
+            invert = Adw.SwitchRow(title=_("Invert wheel direction"))
             invert.set_active(wheel_state.inverted)
             invert.connect("notify::active", self._on_invert_toggled)
             group.add(invert)
@@ -282,8 +286,8 @@ class LogituneWindow(Adw.ApplicationWindow):
         if device.thumbwheel:
             thumb_state = device.thumbwheel.get_state()
             thumb = Adw.SwitchRow(
-                title="Inverter roda do polegar",
-                subtitle="Rolagem horizontal",
+                title=_("Invert the thumb wheel"),
+                subtitle=_("Horizontal scrolling"),
             )
             thumb.set_active(thumb_state.inverted)
             thumb.connect("notify::active", self._on_thumb_toggled)
@@ -303,8 +307,8 @@ class LogituneWindow(Adw.ApplicationWindow):
             return
 
         group = Adw.PreferencesGroup(
-            title="Botões",
-            description="Escolha o que cada botão programável deve fazer.",
+            title=_("Buttons"),
+            description=_("Choose what each programmable button does."),
         )
 
         self._button_rows = {}
@@ -319,10 +323,12 @@ class LogituneWindow(Adw.ApplicationWindow):
             # isso agora do que deixar a pessoa achar que o botão quebrou.
             group.add(
                 Adw.ActionRow(
-                    title="O serviço não está ativo",
+                    title=_("The service is not running"),
                     subtitle=(
-                        "As ações de botão são aplicadas pelo daemon. "
-                        "Ligue com: systemctl --user enable --now logitune-daemon"
+                        _(
+                            "Button actions are applied by the daemon. Start it with: "
+                            "systemctl --user enable --now logitune-daemon"
+                        )
                     ),
                 )
             )
@@ -350,11 +356,11 @@ class LogituneWindow(Adw.ApplicationWindow):
 
     def _profile_label(self, config) -> str:
         if self._profile_index is None:
-            return "Global"
+            return _("Global")
         try:
             return config.profiles[self._profile_index].name
         except IndexError:
-            return "Global"
+            return _("Global")
 
     def _rebuild_profile_bar(self) -> None:
         """Monta as abas: o global, um por aplicativo, e o botão de somar."""
@@ -370,7 +376,7 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         grupo: Gtk.ToggleButton | None = None
         for indice in [None, *range(len(config.profiles))]:
-            rotulo = "Global" if indice is None else config.profiles[indice].name
+            rotulo = _("Global") if indice is None else config.profiles[indice].name
             botao = Gtk.ToggleButton(label=rotulo)
             botao.set_active(indice == self._profile_index)
             if grupo is None:
@@ -386,13 +392,13 @@ class LogituneWindow(Adw.ApplicationWindow):
         scroller.set_child(abas)
         self._profile_bar.append(scroller)
 
-        adicionar = Gtk.Button(icon_name="list-add-symbolic", tooltip_text="Perfil para um aplicativo")
+        adicionar = Gtk.Button(icon_name="list-add-symbolic", tooltip_text=_("Profile for an application"))
         adicionar.add_css_class("flat")
         adicionar.connect("clicked", lambda _b: self._add_profile())
         self._profile_bar.append(adicionar)
 
         if self._profile_index is not None:
-            remover = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remover este perfil")
+            remover = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text=_("Remove this profile"))
             remover.add_css_class("flat")
             remover.connect("clicked", lambda _b: self._remove_profile())
             self._profile_bar.append(remover)
@@ -424,7 +430,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             self._profile_index = len(self._store.load().profiles) - 1
             self._rebuild_profile_bar()
             self._refresh_all_button_rows()
-            self._toast(f"Perfil criado para {app.name}.")
+            self._toast(_("Profile created for {}.").format(app.name))
 
         AppPicker(escolhido, existing=existentes).present(self)
 
@@ -439,11 +445,11 @@ class LogituneWindow(Adw.ApplicationWindow):
             return
 
         dialogo = Adw.AlertDialog(
-            heading=f"Remover o perfil {GLib.markup_escape_text(nome)}?",
-            body="Os botões desse aplicativo voltam a seguir o perfil Global.",
+            heading=_("Remove the profile {}?").format(GLib.markup_escape_text(nome)),
+            body=_("That application's buttons go back to following Global."),
         )
-        dialogo.add_response("cancelar", "Cancelar")
-        dialogo.add_response("remover", "Remover")
+        dialogo.add_response("cancelar", _("Cancel"))
+        dialogo.add_response("remover", _("Remove"))
         dialogo.set_response_appearance("remover", Adw.ResponseAppearance.DESTRUCTIVE)
         dialogo.set_default_response("cancelar")
 
@@ -454,7 +460,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             self._profile_index = None
             self._rebuild_profile_bar()
             self._refresh_all_button_rows()
-            self._toast(f"Perfil {nome} removido.")
+            self._toast(_("Profile {} removed.").format(nome))
 
         dialogo.connect("response", respondeu)
         dialogo.present(self)
@@ -466,15 +472,15 @@ class LogituneWindow(Adw.ApplicationWindow):
     def _describe_binding(self, binding: ButtonBinding | None) -> str:
         """Como a linha do botão descreve o que ele faz hoje."""
         if binding is None or binding.is_empty:
-            return "Padrão do botão"
+            return _("Button default")
         if binding.gestures:
             nomes = ", ".join(g.label for g in binding.gestures)
-            return f"{len(binding.gestures)} gestos: {nomes}"
+            return _("{} gestures: {}").format(len(binding.gestures), nomes)
         try:
             return resolve(binding.press).label
         except UnknownAction:
             # A configuração pode citar uma ação que não existe mais.
-            return f"Ação desconhecida: {binding.press.action}"
+            return _("Unknown action: {}").format(binding.press.action)
 
     def _binding_for(self, cid: int) -> tuple[ButtonBinding | None, bool]:
         """O vínculo em vigor para este botão e se ele é herdado.
@@ -524,15 +530,17 @@ class LogituneWindow(Adw.ApplicationWindow):
             return
         vinculo, herdado = self._binding_for(cid)
         descricao = self._describe_binding(vinculo)
-        row.set_subtitle(f"{descricao}  ·  herdado do Global" if herdado else descricao)
+        row.set_subtitle(
+            _("{}  ·  inherited from Global").format(descricao) if herdado else descricao
+        )
 
         proprio = vinculo is not None and not vinculo.is_empty and not herdado
         limpar = row._clear_button  # noqa: SLF001
         limpar.set_sensitive(proprio)
         limpar.set_tooltip_text(
-            "Voltar a seguir o Global"
+            _("Go back to following Global")
             if self._profile_index is not None
-            else "Voltar ao padrão do botão"
+            else _("Back to the button default")
         )
 
     def _pick_action(self, control) -> None:
@@ -577,7 +585,7 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         self._store.update(remover)
         self._refresh_button_row_by_cid(control.control_id)
-        self._toast(f"{control.label} voltou ao padrão.")
+        self._toast(_("{} is back to its default.").format(control.label))
 
     def _add_remap_group(self, page, device, controls, remappable) -> None:
         """Remapeamento no firmware, que é outra coisa e vale separar.
@@ -586,10 +594,12 @@ class LogituneWindow(Adw.ApplicationWindow):
         daemon rodando — mas só sabe trocar um botão por outro.
         """
         group = Adw.PreferencesGroup(
-            title="Trocar botões entre si",
+            title=_("Swap buttons with each other"),
             description=(
-                "Gravado no próprio mouse: funciona sem o serviço, "
-                "mas só troca um botão pelo comportamento de outro."
+                _(
+                    "Written to the mouse itself: works without the service, but only "
+                    "swaps one button for another button's behaviour."
+                )
             ),
         )
         alguma = False
@@ -602,7 +612,9 @@ class LogituneWindow(Adw.ApplicationWindow):
             model = Gtk.StringList()
             for alvo in alvos:
                 model.append(
-                    "Padrão do botão" if alvo.control_id == control.control_id else alvo.label
+                    _("Button default")
+                    if alvo.control_id == control.control_id
+                    else alvo.label
                 )
             row.set_model(model)
 
@@ -631,18 +643,20 @@ class LogituneWindow(Adw.ApplicationWindow):
         config = self._store.load()
 
         group = Adw.PreferencesGroup(
-            title="Gestos",
+            title=_("Gestures"),
             description=(
-                "Um botão pode carregar até sete funções: toque, toque duplo, "
-                "segurar e arrastar em quatro direções. Como nada na tela "
-                "mostra qual direção faz o quê, mantenha desligado se preferir "
-                "um botão com uma função só."
+                _(
+                    "A button can carry up to seven functions: tap, double tap, hold "
+                    "and drag in four directions. Since nothing on screen shows which "
+                    "direction does what, leave this off if you prefer one function "
+                    "per button."
+                )
             ),
         )
 
         switch = Adw.SwitchRow(
-            title="Reconhecer gestos",
-            subtitle="Vale para os botões que têm gestos configurados",
+            title=_("Recognise gestures"),
+            subtitle=_("Applies to buttons that have gestures configured"),
             active=config.gestures_enabled,
         )
         switch.connect("notify::active", self._on_gestures_toggled)
@@ -654,10 +668,12 @@ class LogituneWindow(Adw.ApplicationWindow):
         if not configurados:
             group.add(
                 Adw.ActionRow(
-                    title="Nenhum botão com gestos",
+                    title=_("No button has gestures"),
                     subtitle=(
-                        "Configure em ~/.config/logitune/config.json — "
-                        "'logitune actions' lista o que dá para atribuir"
+                        _(
+                            "Open a button above to set them up; "
+                            "'logitune actions' lists what can be assigned."
+                        )
                     ),
                 )
             )
@@ -674,7 +690,9 @@ class LogituneWindow(Adw.ApplicationWindow):
                 lambda c: c.gestures.__setitem__("enabled", ligado)
             )
 
-        self._guarded(aplicar, f"gestos {'ligados' if ligado else 'desligados'}")
+        self._guarded(
+            aplicar, _("switch gestures on") if ligado else _("switch gestures off")
+        )
 
     def _add_hosts_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
         if device.hosts is None or device.change_host is None:
@@ -683,19 +701,19 @@ class LogituneWindow(Adw.ApplicationWindow):
         hosts = device.hosts.list_hosts()
 
         group = Adw.PreferencesGroup(
-            title="Computadores",
-            description="O mouse guarda três pareamentos e alterna entre eles.",
+            title=_("Computers"),
+            description=_("The mouse stores three pairings and switches between them."),
         )
 
         for host in hosts:
             row = Adw.ActionRow(title=host.label, subtitle=host.bus_label)
             if host.is_current:
-                badge = Gtk.Label(label="conectado")
+                badge = Gtk.Label(label=_("connected"))
                 badge.add_css_class("success")
                 badge.add_css_class("caption")
                 row.add_suffix(badge)
             else:
-                button = Gtk.Button(label="Trocar", valign=Gtk.Align.CENTER)
+                button = Gtk.Button(label=_("Switch"), valign=Gtk.Align.CENTER)
                 button.connect("clicked", self._on_host_switch, host.index)
                 row.add_suffix(button)
             group.add(row)
@@ -712,7 +730,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             action()
         except (HidppError, NoResponse, OSError) as exc:
             logger.warning("%s falhou: %s", description, exc)
-            self._toast(f"Não foi possível {description}.")
+            self._toast(_("Could not {}.").format(description))
 
     def _debounce(self, key: str, delay_ms: int, action) -> None:
         """Adia uma escrita, cancelando a anterior ainda pendente."""
@@ -735,7 +753,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             "dpi",
             _DEBOUNCE_MS,
             lambda: self._guarded(
-                lambda: self._device.dpi.set_dpi(value), "aplicar o DPI"
+                lambda: self._device.dpi.set_dpi(value), _("apply the DPI")
             ),
         )
 
@@ -746,34 +764,34 @@ class LogituneWindow(Adw.ApplicationWindow):
             _DEBOUNCE_MS,
             lambda: self._guarded(
                 lambda: self._device.smartshift.set_state(auto_disengage=value),
-                "ajustar o SmartShift",
+                _("adjust SmartShift"),
             ),
         )
 
     def _on_ratchet_toggled(self, row: Adw.SwitchRow, _param) -> None:
         mode = WheelMode.RATCHET if row.get_active() else WheelMode.FREESPIN
         self._guarded(
-            lambda: self._device.smartshift.set_state(mode=mode), "mudar o modo da roda"
+            lambda: self._device.smartshift.set_state(mode=mode), _("change the wheel mode")
         )
 
     def _on_hires_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
         self._guarded(
             lambda: self._device.wheel.set_state(high_resolution=active),
-            "mudar a resolução da rolagem",
+            _("change the scroll resolution"),
         )
 
     def _on_invert_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
         self._guarded(
-            lambda: self._device.wheel.set_state(inverted=active), "inverter a roda"
+            lambda: self._device.wheel.set_state(inverted=active), _("invert the wheel")
         )
 
     def _on_thumb_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
         self._guarded(
             lambda: self._device.thumbwheel.set_state(inverted=active),
-            "inverter a roda do polegar",
+            _("invert the thumb wheel"),
         )
 
     def _on_button_remapped(self, row: Adw.ComboRow, _param) -> None:
@@ -793,10 +811,10 @@ class LogituneWindow(Adw.ApplicationWindow):
     def _on_host_switch(self, _button: Gtk.Button, host_index: int) -> None:
         if self._device is None or self._device.change_host is None:
             return
-        self._toast("Trocando de computador… o mouse vai se desconectar daqui.")
+        self._toast(_("Switching computer… the mouse will disconnect from here."))
         self._guarded(
             lambda: self._device.change_host.switch_to(host_index),
-            "trocar de computador",
+            _("switch computer"),
         )
 
     # -- atualização periódica -----------------------------------------

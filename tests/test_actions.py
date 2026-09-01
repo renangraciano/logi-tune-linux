@@ -155,8 +155,10 @@ class TestCatalogo:
         assert categorias == sorted(categorias, key=lambda c: c.order)
 
     def test_busca_encontra_pela_categoria(self):
-        # Nenhuma ação de navegador tem "navegador" no id nem no rótulo.
-        encontradas = default_registry().search("navegador")
+        # Nenhuma ação de navegador tem o nome da categoria no id nem no
+        # rótulo. Usamos o rótulo traduzido para o teste não depender do
+        # idioma da sessão.
+        encontradas = default_registry().search(Category.NAVEGADOR.label)
         assert {s.id for s in encontradas} >= {"browser.back", "browser.forward"}
 
     def test_registro_recusa_duplicata(self):

@@ -24,6 +24,7 @@ from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
 from logitune.actions.gestures import Gesture  # noqa: E402
+from logitune.i18n import _  # noqa: E402
 from logitune.ui.action_picker import ActionPicker  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -85,13 +86,15 @@ class ButtonDialog(Adw.Dialog):
         usa_gestos = bool(vinculo and vinculo.gestures)
 
         modo = Adw.PreferencesGroup(
-            title="Como este botão responde",
+            title=_("How this button responds"),
             description=(
-                "Uma ação dispara no clique. Com gestos, o botão espera você "
-                "soltar para saber se foi toque, segurar ou arrasto."
+                _(
+                    "One action fires on click. With gestures, the button waits "
+                    "for you to release before deciding between tap, hold and drag."
+                )
             ),
         )
-        switch = Adw.SwitchRow(title="Usar gestos", active=usa_gestos)
+        switch = Adw.SwitchRow(title=_("Use gestures"), active=usa_gestos)
         switch.connect("notify::active", self._on_mode_changed)
         modo.add(switch)
         self._page.add(modo)
@@ -100,8 +103,8 @@ class ButtonDialog(Adw.Dialog):
             aviso = Adw.PreferencesGroup()
             aviso.add(
                 Adw.ActionRow(
-                    title="O reconhecimento de gestos está desligado",
-                    subtitle="Ligue em Gestos, na janela principal, para que estes valham.",
+                    title=_("Gesture recognition is switched off"),
+                    subtitle=_("Turn it on under Gestures, in the main window."),
                 )
             )
             self._page.add(aviso)
@@ -112,15 +115,17 @@ class ButtonDialog(Adw.Dialog):
             self._add_single_row(vinculo)
 
     def _add_single_row(self, vinculo: ButtonBinding | None) -> None:
-        group = Adw.PreferencesGroup(title="Ação")
+        group = Adw.PreferencesGroup(title=_("Action"))
         atual = vinculo.press if vinculo else None
-        group.add(self._make_row("Ao clicar", atual, self._set_press, self._clear_press))
+        group.add(self._make_row(_("On click"), atual, self._set_press, self._clear_press))
         self._page.add(group)
 
     def _add_gesture_rows(self, vinculo: ButtonBinding | None) -> None:
         group = Adw.PreferencesGroup(
-            title="Gestos",
-            description="Segure o botão e arraste. O mouse vibra ao reconhecer a direção.",
+            title=_("Gestures"),
+            description=_(
+                "Hold the button and drag. The mouse buzzes when it recognises the direction."
+            ),
         )
         gestos = vinculo.gestures if vinculo else {}
         for gesto in _GESTURE_ORDER:
@@ -144,7 +149,7 @@ class ButtonDialog(Adw.Dialog):
         botao = Gtk.Button(icon_name="edit-clear-symbolic", valign=Gtk.Align.CENTER)
         botao.add_css_class("flat")
         botao.set_sensitive(binding is not None)
-        botao.set_tooltip_text("Remover")
+        botao.set_tooltip_text(_("Remove"))
         botao.connect("clicked", lambda _b: (limpar(), self._rebuild()))
         row.add_suffix(botao)
         row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
@@ -161,11 +166,11 @@ class ButtonDialog(Adw.Dialog):
 
     def _describe(self, binding: Binding | None) -> str:
         if binding is None:
-            return "Sem ação"
+            return _("No action")
         try:
             return resolve(binding).label
         except UnknownAction:
-            return f"Ação desconhecida: {binding.action}"
+            return _("Unknown action: {}").format(binding.action)
 
     # -- edição --------------------------------------------------------
 
@@ -196,14 +201,13 @@ class ButtonDialog(Adw.Dialog):
     def _confirm_drop(self, row: Adw.SwitchRow, gestos: dict, perdidos: list) -> None:
         nomes = ", ".join(g.label for g in perdidos)
         dialogo = Adw.AlertDialog(
-            heading="Descartar os gestos configurados?",
+            heading=_("Discard the configured gestures?"),
             body=(
-                f"Uma ação só responde ao clique, então {nomes} "
-                f"{'serão descartados' if len(perdidos) > 1 else 'será descartado'}."
+                _("An action only responds to a click, so {} will be discarded.").format(nomes)
             ),
         )
-        dialogo.add_response("cancelar", "Manter os gestos")
-        dialogo.add_response("descartar", "Descartar")
+        dialogo.add_response("cancelar", _("Keep the gestures"))
+        dialogo.add_response("descartar", _("Discard"))
         dialogo.set_response_appearance("descartar", Adw.ResponseAppearance.DESTRUCTIVE)
         dialogo.set_default_response("cancelar")
 

@@ -25,6 +25,7 @@ from gi.repository import Adw, Gtk  # noqa: E402
 
 from logitune.actions import Binding, default_registry  # noqa: E402
 from logitune.actions.spec import ActionSpec  # noqa: E402
+from logitune.i18n import _  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class ActionPicker(Adw.Dialog):
 
     def __init__(self, on_chosen, *, current: Binding | None = None) -> None:
         super().__init__()
-        self.set_title("Escolher ação")
+        self.set_title(_("Choose an action"))
         self.set_content_width(520)
         self.set_content_height(640)
 
@@ -44,7 +45,7 @@ class ActionPicker(Adw.Dialog):
         self._rows: list[tuple[Gtk.Widget, ActionSpec]] = []
         self._groups: list[Adw.PreferencesGroup] = []
 
-        self._search = Gtk.SearchEntry(placeholder_text="Filtrar ações")
+        self._search = Gtk.SearchEntry(placeholder_text=_("Filter actions"))
         self._search.connect("search-changed", self._on_search)
 
         self._page = Adw.PreferencesPage()
@@ -70,7 +71,7 @@ class ActionPicker(Adw.Dialog):
     def _build_groups(self) -> None:
         destaque = self._registry.recommended()
         if destaque:
-            self._add_group("Recomendável", destaque)
+            self._add_group(_("Recommended"), destaque)
         for categoria, specs in self._registry.by_category().items():
             self._add_group(categoria.label, specs)
 
@@ -154,7 +155,7 @@ class ActionPicker(Adw.Dialog):
             group.add(row)
             campos[parametro.name] = row
 
-        confirmar = Gtk.Button(label="Atribuir", halign=Gtk.Align.END)
+        confirmar = Gtk.Button(label=_("Assign"), halign=Gtk.Align.END)
         confirmar.add_css_class("suggested-action")
         confirmar.add_css_class("pill")
         confirmar.set_margin_end(12)
