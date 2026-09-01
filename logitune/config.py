@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from logitune.actions.gestures import GestureThresholds
 from logitune.actions.binding import (
     BindingError,
     ButtonBinding,
@@ -166,6 +167,41 @@ class Config:
     #: Aplicado quando nenhum perfil casa, e como base para todos eles.
     default: Settings = field(default_factory=Settings)
     profiles: list[Profile] = field(default_factory=list)
+    #: Reconhecimento de gestos: se está ligado e com que limiares. Fica fora
+    #: dos perfis de propósito: descreve a mão de quem usa, não o aplicativo
+    #: em foco.
+    gestures: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def gestures_enabled(self) -> bool:
+        """Os gestos estão ligados?
+
+        Ligados por padrão: quem escreveu um mapa de gestos já disse o que
+        queria, e não deveria precisar de uma segunda confirmação. O
+        interruptor existe para desligar sem perder a configuração.
+        """
+        return bool(self.gestures.get("enabled", True))
+
+    def gesture_thresholds(self) -> GestureThresholds:
+        """Os limiares configurados, caindo no padrão medido para o resto."""
+        campos = {f for f in GestureThresholds.__dataclass_fields__}
+        valores: dict[str, int] = {}
+        for chave, valor in self.gestures.items():
+            if chave == "enabled":
+                continue
+            if chave not in campos:
+                logger.warning("limiar de gesto desconhecido ignorado: %s", chave)
+                continue
+            try:
+                valores[chave] = int(valor)
+            except (TypeError, ValueError):
+                logger.warning("limiar de gesto inválido ignorado: %s=%r", chave, valor)
+
+        try:
+            return GestureThresholds(**valores)
+        except ValueError as exc:
+            logger.error("limiares de gesto inválidos (%s); usando os padrões", exc)
+            return GestureThresholds()
 
     def profile_for(self, window_class: str, window_title: str) -> Profile | None:
         """O primeiro perfil que casa com a janela em foco."""
@@ -188,6 +224,7 @@ class Config:
             "version": self.version,
             "default": asdict(self.default),
             "profiles": [asdict(p) for p in self.profiles],
+            "gestures": dict(self.gestures),
         }
 
     @classmethod
@@ -223,6 +260,7 @@ class Config:
             version=CONFIG_VERSION,
             default=build_settings(data.get("default", {})),
             profiles=profiles,
+            gestures=dict(data.get("gestures", {}) or {}),
         )
 
     def save(self, path: Path | None = None) -> Path:
@@ -264,6 +302,28 @@ def check_permissions(path: Path | None = None) -> str | None:
     return None
 
 
+def validate(path: Path | None = None) -> str | None:
+    """Confere se a configuração é legível. Devolve o erro, ou ``None``.
+
+    :func:`load` engole o erro de propósito — um arquivo quebrado não pode
+    derrubar o daemon — mas engolir também esconde: o daemon volta aos padrões
+    e nada na tela avisa que os seus ajustes pararam de valer. Esta função
+    existe para o diagnóstico poder contar.
+    """
+    target = path or config_path()
+    if not target.is_file():
+        return None
+    try:
+        data = json.loads(target.read_text())
+    except json.JSONDecodeError as exc:
+        return f"{target} tem JSON inválido na linha {exc.lineno}: {exc.msg}"
+    except OSError as exc:
+        return f"não consegui ler {target}: {exc}"
+    if not isinstance(data, dict):
+        return f"{target} deveria conter um objeto JSON"
+    return None
+
+
 def load(path: Path | None = None) -> Config:
     """Lê a configuração, devolvendo o padrão se o arquivo não existir."""
     target = path or config_path()
@@ -287,8 +347,13 @@ def example_config() -> Config:
             dpi=2800,
             smartshift=32,
             invert_thumb=True,
-            # "logitune actions" lista tudo que dá para pôr aqui.
-            bindings={"0x0056": "browser.reopen_tab"},
+            # Um botão, uma ação: é o que quase todo mundo quer, e o que a
+            # configuração de exemplo deve ensinar. Gestos existem, mas são
+            # opcionais — veja o README. "logitune actions" lista o catálogo.
+            bindings={
+                "0x0056": "browser.reopen_tab",
+                "0x01A0": "system.overview",
+            },
         ),
         profiles=[
             Profile(
