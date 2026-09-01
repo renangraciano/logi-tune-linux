@@ -197,6 +197,8 @@ class Daemon:
         if not argv:
             return
         try:
+            # SIGCHLD está em SIG_IGN (ver run), então o kernel recolhe o filho
+            # sozinho quando ele termina.
             subprocess.Popen(  # noqa: S603 - o comando vem da config do usuário
                 argv,
                 stdin=subprocess.DEVNULL,
@@ -246,6 +248,10 @@ class Daemon:
 
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
+        # Os comandos de botão são disparados e esquecidos: nunca esperamos por
+        # eles. Sem isto cada acionamento deixa um zumbi para sempre, e um botão
+        # usado o dia inteiro acaba enchendo a tabela de processos.
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
         device_fd = self.device.transport.fileno
         focus_fd = self.focus.fileno
