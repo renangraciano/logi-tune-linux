@@ -49,7 +49,7 @@ GNOME 46, X11.
 | ✅ | **Haptic feedback — 15 waveforms** | `0x19B0` |
 | ✅ | Per-application profiles (X11) | — |
 | ✅ | **53 actions to bind buttons to** | — |
-| ✅ | **Seven gestures on one button** | `0x1B04` |
+| ✅ | Gestures on a held button (opt-in) | `0x1B04` |
 | 🚧 | Actions Ring radial menu | `0x01A0` |
 
 ## Two things you will not find elsewhere
@@ -209,28 +209,44 @@ button that does nothing and says nothing is worse than one that still clicks.
 The `actions` key from earlier versions still works — each entry becomes the
 `shell.run` action — so existing configurations keep running untouched.
 
-Gestures are the next step. The configuration already accepts them, so a button
-can carry seven functions instead of one:
+### Gestures (optional)
+
+**One button, one action is the default, and for most people it should stay
+that way.** The Actions Ring behaves like any other button unless you ask for
+more.
+
+If you do want more, a button can carry up to seven functions — tap, double
+tap, hold, and drag in four directions:
 
 ```json
 "bindings": {
   "0x01A0": {
     "tap":        "system.overview",
-    "double_tap": "media.play_pause",
-    "hold":       "system.screenshot_area",
+    "hold":       "media.play_pause",
     "drag_left":  "workspace.left",
     "drag_right": "workspace.right"
   }
 }
 ```
 
-Every divertable button on the MX Master 4 — the Actions Ring included —
-reports `RAW_XY`, streaming movement while held, so all seven work on any of
-them. The mouse buzzes when a direction is recognised and again when the action
-fires, which is what makes a gesture usable without looking at the screen.
+Every divertable button on the MX Master 4 reports `RAW_XY`, streaming movement
+while held, so all seven work on any of them. The mouse buzzes when a direction
+is recognised and again when the action fires, which is what makes a gesture
+usable without looking at the screen.
 
-The thresholds were measured, not guessed — 25 presses on real hardware, kept
-as a regression test. Two findings shaped them:
+Be honest with yourself about the cost before turning this on. **Gestures are
+invisible**: nothing on screen says which direction does what, and six
+functions on one button is more than most people reliably remember. Logi
+Options+ gives that button a single function for this reason, not a technical
+one. The proper answer to "many actions on one button" is the Actions Ring
+radial menu, which shows you the options — that is on the
+[roadmap](#roadmap), and gestures are the stopgap until it exists.
+
+What gestures do handle well is a small, opinionated set: a tap and one or two
+drags whose direction *means* something (drag left goes left).
+
+Thresholds were measured, not guessed — 25 presses on real hardware, kept as a
+regression test. Two findings shaped them:
 
 - An ordinary click can displace the mouse by **98 units**: the hand shoves it
   while pressing. A distance-only threshold fires drags you never asked for.
@@ -238,8 +254,9 @@ as a regression test. Two findings shaped them:
   **29 to 72**. A bump is one jolt, a drag is a stream — so a drag requires
   distance *and* continuity.
 
-Tune them per hand under `gestures` if your wrist is steadier or shakier than
-the one they were calibrated on:
+Tune them per hand if your wrist is steadier or shakier than the one they were
+calibrated on, or raise `hold_ms` if your ordinary clicks are slow enough to
+register as holds:
 
 ```json
 "gestures": { "drag_units": 200, "drag_samples": 3, "hold_ms": 500, "double_tap_ms": 400 }
