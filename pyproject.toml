@@ -48,6 +48,7 @@ include = ["logitune*"]
 [tool.setuptools.package-data]
 "logitune.locale" = ["*/LC_MESSAGES/*.mo"]
 logitune = ["locale/*/LC_MESSAGES/*.mo"]
+"logitune.ui" = ["assets/*.png", "assets/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
