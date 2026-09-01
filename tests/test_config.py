@@ -151,3 +151,42 @@ class TestPermissoes:
         from logitune.config import check_permissions
 
         assert check_permissions(tmp_path / "nao-existe.json") is None
+
+
+class TestValidacao:
+    """load() engole erro de propósito — um arquivo quebrado não pode derrubar
+    o daemon. Mas engolir esconde, e foi assim que uma configuração inválida
+    passou despercebida enquanto os ajustes deixavam de valer."""
+
+    def test_arquivo_bom_nao_reclama(self, tmp_path):
+        from logitune.config import validate
+
+        destino = tmp_path / "config.json"
+        example_config().save(destino)
+        assert validate(destino) is None
+
+    def test_json_quebrado_e_apontado_com_a_linha(self, tmp_path):
+        from logitune.config import validate
+
+        destino = tmp_path / "config.json"
+        # O erro real cometido ao migrar de "actions" para "bindings":
+        # as duas chaves ficaram na mesma linha.
+        destino.write_text(
+            '{\n  "version": 1,\n'
+            '  "default": { "actions": "bindings": { "0x1": "a" } }\n}\n'
+        )
+        erro = validate(destino)
+        assert erro is not None
+        assert "linha 3" in erro
+
+    def test_arquivo_ausente_nao_e_erro(self, tmp_path):
+        from logitune.config import validate
+
+        assert validate(tmp_path / "nao-existe.json") is None
+
+    def test_json_que_nao_e_objeto(self, tmp_path):
+        from logitune.config import validate
+
+        destino = tmp_path / "config.json"
+        destino.write_text("[1, 2, 3]")
+        assert validate(destino) is not None

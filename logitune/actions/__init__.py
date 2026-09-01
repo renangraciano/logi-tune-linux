@@ -11,7 +11,7 @@ Uso típico::
     from logitune.actions import default_registry, parse_button, resolve
 
     binding = parse_button("media.play_pause")
-    acao = resolve(binding.on_press)
+    acao = resolve(binding.press)
     if acao.available():
         acao.run()
 """

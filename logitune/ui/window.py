@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
 import threading
 
 import gi
@@ -13,6 +15,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
+from logitune import config as config_module  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
 from logitune.hidpp.features.scroll import WheelMode  # noqa: E402
@@ -150,6 +153,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             ("ponteiro", self._add_pointer_group),
             ("rolagem", self._add_scroll_group),
             ("botões", self._add_buttons_group),
+            ("gestos", self._add_gestures_group),
             ("computadores", self._add_hosts_group),
         )
 
@@ -313,6 +317,85 @@ class LogituneWindow(Adw.ApplicationWindow):
             group.add(row)
 
         page.add(group)
+
+    def _add_gestures_group(
+        self, page: Adw.PreferencesPage, device: LogitechDevice
+    ) -> None:
+        """Interruptor dos gestos.
+
+        Diferente das outras seções, esta não fala com o mouse: gesto é
+        decisão do daemon, e mora no ``config.json``. É a primeira coisa que a
+        interface grava em arquivo em vez de escrever no dispositivo.
+        """
+        config = config_module.load()
+
+        group = Adw.PreferencesGroup(
+            title="Gestos",
+            description=(
+                "Um botão pode carregar até sete funções: toque, toque duplo, "
+                "segurar e arrastar em quatro direções. Como nada na tela "
+                "mostra qual direção faz o quê, mantenha desligado se preferir "
+                "um botão com uma função só."
+            ),
+        )
+
+        switch = Adw.SwitchRow(
+            title="Reconhecer gestos",
+            subtitle="Vale para os botões que têm gestos configurados",
+            active=config.gestures_enabled,
+        )
+        switch.connect("notify::active", self._on_gestures_toggled)
+        group.add(switch)
+
+        configurados = sum(
+            1 for _, b in config.default.binding_pairs() if b.gestures
+        )
+        if not configurados:
+            group.add(
+                Adw.ActionRow(
+                    title="Nenhum botão com gestos",
+                    subtitle=(
+                        "Configure em ~/.config/logitune/config.json — "
+                        "'logitune actions' lista o que dá para atribuir"
+                    ),
+                )
+            )
+
+        page.add(group)
+
+    def _on_gestures_toggled(self, row: Adw.SwitchRow, _param) -> None:
+        if self._loading:
+            return
+        ligado = row.get_active()
+
+        def aplicar() -> None:
+            config = config_module.load()
+            config.gestures = {**config.gestures, "enabled": ligado}
+            config.save()
+            self._reload_daemon()
+
+        self._guarded(aplicar, f"gestos {'ligados' if ligado else 'desligados'}")
+
+    def _reload_daemon(self) -> None:
+        """Pede ao daemon que releia a configuração.
+
+        Sem isto o interruptor só valeria no próximo reinício do serviço, e um
+        controle que não faz nada na hora é pior que controle nenhum. Se o
+        daemon não estiver rodando não há o que avisar: a configuração já foi
+        gravada e vale quando ele subir.
+        """
+        systemctl = shutil.which("systemctl")
+        if systemctl is None:
+            return
+        try:
+            subprocess.run(
+                [systemctl, "--user", "reload", "logitune-daemon"],
+                capture_output=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.debug("não consegui recarregar o daemon: %s", exc)
 
     def _add_hosts_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
         if device.hosts is None or device.change_host is None:

@@ -184,11 +184,10 @@ class TestVinculos:
         assert vinculo.gestures[Gesture.TAP] == Binding("system.overview")
         assert vinculo.gestures[Gesture.DRAG_LEFT] == Binding("workspace.left")
 
-    def test_so_com_gestos_o_clique_dispara_o_tap(self):
-        # Enquanto o reconhecimento de gestos não existe, o botão precisa
-        # fazer alguma coisa em vez de ficar mudo.
+    def test_gestos_ficam_separados_do_clique(self):
         vinculo = ButtonBinding.parse({"tap": "media.next", "hold": "media.stop"})
-        assert vinculo.on_press == Binding("media.next")
+        assert vinculo.press is None
+        assert set(vinculo.gestures) == {Gesture.TAP, Gesture.HOLD}
 
     def test_gesto_desconhecido_e_recusado(self):
         with pytest.raises(BindingError, match="drag_diagonal"):
@@ -391,8 +390,15 @@ class TestDaemonResolveVinculos:
         return registro
 
     def _resolver(self, registro, bindings):
+        """Só os botões de clique; os de gesto saem no segundo dicionário."""
         daemon, settings = _daemon(bindings, registro)
-        return daemon._resolve_bindings(settings)
+        cliques, _ = daemon._resolve_bindings(settings)
+        return cliques
+
+    def _resolver_gestos(self, registro, bindings):
+        daemon, settings = _daemon(bindings, registro)
+        _, gestos = daemon._resolve_bindings(settings)
+        return gestos
 
     def test_acao_disponivel_entra(self, registro):
         assert list(self._resolver(registro, {"0x53": "t.ok"})) == [0x53]
@@ -410,9 +416,27 @@ class TestDaemonResolveVinculos:
         # O tocador pode abrir depois; o botão precisa estar pronto.
         assert list(self._resolver(registro, {"0x53": "t.passageira"})) == [0x53]
 
-    def test_gesto_tap_vira_a_acao_do_clique(self, registro):
-        resolvidas = self._resolver(registro, {"0x1A0": {"tap": "t.ok", "hold": "t.ok"}})
-        assert resolvidas[0x1A0].spec.id == "t.ok"
+    def test_botao_com_gestos_nao_dispara_no_clique(self, registro):
+        """Um botão de gestos passa pelo reconhecedor, não pelo clique direto.
+
+        Disparar no aperto tiraria dele a chance de virar arrasto.
+        """
+        vinculos = {"0x1A0": {"tap": "t.ok", "hold": "t.ok"}}
+        assert self._resolver(registro, vinculos) == {}
+        assert set(self._resolver_gestos(registro, vinculos)[0x1A0]) == {
+            Gesture.TAP,
+            Gesture.HOLD,
+        }
+
+    def test_gesto_indisponivel_nao_leva_os_outros(self, registro):
+        gestos = self._resolver_gestos(
+            registro, {"0x1A0": {"tap": "t.ok", "hold": "t.sem_permissao"}}
+        )
+        assert set(gestos[0x1A0]) == {Gesture.TAP}
+
+    def test_botao_sem_nenhum_gesto_valido_fica_de_fabrica(self, registro):
+        gestos = self._resolver_gestos(registro, {"0x1A0": {"tap": "nao.existe"}})
+        assert gestos == {}
 
     def test_um_vinculo_ruim_nao_leva_os_bons(self, registro):
         resolvidas = self._resolver(registro, {"0x53": "nao.existe", "0x56": "t.ok"})

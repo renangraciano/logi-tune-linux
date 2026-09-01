@@ -71,6 +71,29 @@ class ButtonEvent:
 
 #: Função 0x00 da 0x1B04 em modo notificação: divertedButtonsEvent.
 _DIVERTED_BUTTONS_EVENT = 0x00
+#: Função 0x01: divertedRawXYEvent, o deslocamento enquanto o botão está preso.
+_DIVERTED_RAW_XY_EVENT = 0x01
+
+
+@dataclass(frozen=True)
+class RawMovement:
+    """Deslocamento do mouse enquanto um botão desviado está pressionado.
+
+    Só chega quando o botão foi desviado **e** marcado com ``raw_xy``. É a
+    matéria-prima dos gestos: sem isto não há como distinguir um toque de um
+    arrasto, porque o dispositivo não conta nada sobre o movimento.
+
+    As unidades são contagens do sensor, não pixels: elas não dependem da
+    aceleração do ponteiro nem do DPI configurado.
+    """
+
+    dx: int
+    dy: int
+
+    @property
+    def distance_squared(self) -> int:
+        """Distância ao quadrado, para comparar com um limiar sem raiz."""
+        return self.dx * self.dx + self.dy * self.dy
 
 
 class NotificationListener:
@@ -111,6 +134,26 @@ class NotificationListener:
             function=(report[3] & 0xF0) >> 4,
             data=report[4:],
             feature_id=self._index_to_feature.get(feature_index),
+        )
+
+    def as_raw_movement(self, notification: Notification) -> RawMovement | None:
+        """Traduz uma notificação de movimento bruto.
+
+        Os dois eixos vêm como inteiros de 16 bits **com sinal**: ler sem
+        sinal transformaria todo movimento para a esquerda ou para cima em um
+        deslocamento enorme na direção oposta.
+        """
+        if notification.feature_id != int(FeatureID.REPROG_CONTROLS_V4):
+            return None
+        if notification.function != _DIVERTED_RAW_XY_EVENT:
+            return None
+
+        data = notification.data
+        if len(data) < 4:
+            return None
+        return RawMovement(
+            dx=int.from_bytes(data[0:2], "big", signed=True),
+            dy=int.from_bytes(data[2:4], "big", signed=True),
         )
 
     def as_button_event(self, notification: Notification) -> ButtonEvent | None:
