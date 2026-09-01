@@ -249,8 +249,10 @@ class Daemon:
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
         # Os comandos de botão são disparados e esquecidos: nunca esperamos por
-        # eles. Sem isto cada acionamento deixa um zumbi para sempre, e um botão
-        # usado o dia inteiro acaba enchendo a tabela de processos.
+        # eles. O módulo subprocess recolhe os filhos anteriores só quando um
+        # novo Popen é criado, então sem isto o último comando executado fica
+        # como defunct até que outro botão seja acionado. Passar SIGCHLD para
+        # SIG_IGN entrega a colheita ao kernel, que a faz na hora.
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
         device_fd = self.device.transport.fileno
