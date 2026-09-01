@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from logitune.hidpp.constants import FeatureID
 from logitune.hidpp.features.base import Feature
+from logitune.i18n import _
 
 _GET_CAPABILITIES = 0x00
 _GET_STATUS = 0x01
@@ -23,11 +24,11 @@ class ChargingStatus(enum.IntEnum):
     @property
     def label(self) -> str:
         return {
-            ChargingStatus.DISCHARGING: "descarregando",
-            ChargingStatus.CHARGING: "carregando",
-            ChargingStatus.CHARGING_SLOW: "carregamento lento",
-            ChargingStatus.CHARGE_COMPLETE: "carga completa",
-            ChargingStatus.CHARGING_ERROR: "erro de carregamento",
+            ChargingStatus.DISCHARGING: _("discharging"),
+            ChargingStatus.CHARGING: _("charging"),
+            ChargingStatus.CHARGING_SLOW: _("charging slowly"),
+            ChargingStatus.CHARGE_COMPLETE: _("fully charged"),
+            ChargingStatus.CHARGING_ERROR: _("charging error"),
         }[self]
 
 

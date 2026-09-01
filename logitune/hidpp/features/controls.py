@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from logitune.hidpp.constants import FeatureID
 from logitune.hidpp.features.base import Feature
+from logitune.i18n import _
 
 _GET_COUNT = 0x00
 _GET_CID_INFO = 0x01
@@ -57,15 +58,15 @@ class TaskID(enum.IntEnum):
 
 #: Rótulos em português para exibir na interface.
 CONTROL_LABELS: dict[int, str] = {
-    ControlID.LEFT_CLICK: "Botão esquerdo",
-    ControlID.RIGHT_CLICK: "Botão direito",
-    ControlID.MIDDLE_BUTTON: "Botão do meio",
-    ControlID.BACK: "Voltar",
-    ControlID.FORWARD: "Avançar",
-    ControlID.MOUSE_GESTURE_BUTTON: "Botão de gestos",
+    ControlID.LEFT_CLICK: _("Left button"),
+    ControlID.RIGHT_CLICK: _("Right button"),
+    ControlID.MIDDLE_BUTTON: _("Middle button"),
+    ControlID.BACK: _("Back"),
+    ControlID.FORWARD: _("Forward"),
+    ControlID.MOUSE_GESTURE_BUTTON: _("Gesture button"),
     ControlID.SMART_SHIFT: "SmartShift",
-    ControlID.VIRTUAL_GESTURE_BUTTON: "Gesto virtual",
-    ControlID.ACTIONS_RING: "Botão do Actions Ring",
+    ControlID.VIRTUAL_GESTURE_BUTTON: _("Virtual gesture"),
+    ControlID.ACTIONS_RING: _("Actions Ring button"),
 }
 
 
@@ -124,7 +125,9 @@ class ControlInfo:
 
     @property
     def label(self) -> str:
-        return CONTROL_LABELS.get(self.control_id, f"Controle 0x{self.control_id:04X}")
+        return CONTROL_LABELS.get(
+            self.control_id, _("Control 0x{:04X}").format(self.control_id)
+        )
 
     @property
     def is_remappable(self) -> bool:
