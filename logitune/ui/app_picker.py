@@ -18,6 +18,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gio, Gtk  # noqa: E402
 
 from logitune.actions.backends.launch import AppEntry, list_apps  # noqa: E402
+from logitune.i18n import _  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class AppPicker(Adw.Dialog):
 
     def __init__(self, on_chosen, *, existing: set[str] | None = None) -> None:
         super().__init__()
-        self.set_title("Escolher aplicativo")
+        self.set_title(_("Choose an application"))
         self.set_content_width(480)
         self.set_content_height(600)
 
@@ -35,7 +36,7 @@ class AppPicker(Adw.Dialog):
         self._existing = {e.casefold() for e in (existing or set())}
         self._rows: list[tuple[Adw.ActionRow, AppEntry]] = []
 
-        self._search = Gtk.SearchEntry(placeholder_text="Filtrar aplicativos", hexpand=True)
+        self._search = Gtk.SearchEntry(placeholder_text=_("Filter applications"), hexpand=True)
         self._search.connect("search-changed", self._on_search)
 
         group = Adw.PreferencesGroup()
@@ -48,8 +49,8 @@ class AppPicker(Adw.Dialog):
         if not apps:
             group.add(
                 Adw.ActionRow(
-                    title="Nenhum aplicativo encontrado",
-                    subtitle="Verifique se o python3-gi está instalado.",
+                    title=_("No applications found"),
+                    subtitle=_("Check that python3-gi is installed."),
                 )
             )
         for app in apps:
@@ -78,7 +79,7 @@ class AppPicker(Adw.Dialog):
         row = Adw.ActionRow(
             title=GLib.markup_escape_text(app.name),
             subtitle=GLib.markup_escape_text(
-                "Já tem um perfil" if ja_existe else app.wm_class
+                _("Already has a profile") if ja_existe else app.wm_class
             ),
             activatable=not ja_existe,
             sensitive=not ja_existe,

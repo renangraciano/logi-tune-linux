@@ -44,5 +44,10 @@ version = { attr = "logitune.__version__" }
 [tool.setuptools.packages.find]
 include = ["logitune*"]
 
+# Os catálogos são compilados pelo setup.py durante o build.
+[tool.setuptools.package-data]
+"logitune.locale" = ["*/LC_MESSAGES/*.mo"]
+logitune = ["locale/*/LC_MESSAGES/*.mo"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

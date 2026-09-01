@@ -5,3 +5,6 @@ build/
 dist/
 .venv/
 .pytest_cache/
+
+# Compilados a partir de po/*.po pelo build (scripts/build-translations.sh)
+logitune/locale/

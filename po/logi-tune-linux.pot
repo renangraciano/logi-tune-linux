@@ -1,0 +1,774 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR logi-tune-linux contributors
+# This file is distributed under the same license as the logi-tune-linux package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: logi-tune-linux 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/renangraciano/logi-tune-linux/"
+"issues\n"
+"POT-Creation-Date: 2026-09-01 13:22-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: logitune/actions/catalog.py:54
+msgid "Sends {}"
+msgstr ""
+
+#: logitune/actions/catalog.py:100
+msgid "Activities overview"
+msgstr ""
+
+#: logitune/actions/catalog.py:101
+msgid "Opens the GNOME activities overview"
+msgstr ""
+
+#: logitune/actions/catalog.py:102
+msgid "Application grid"
+msgstr ""
+
+#: logitune/actions/catalog.py:103
+msgid "Shows every installed application"
+msgstr ""
+
+#: logitune/actions/catalog.py:104
+msgid "Search"
+msgstr ""
+
+#: logitune/actions/catalog.py:105
+msgid "Opens GNOME search"
+msgstr ""
+
+#: logitune/actions/catalog.py:108
+msgid "Lock the screen"
+msgstr ""
+
+#: logitune/actions/catalog.py:110
+msgid "Locks the session"
+msgstr ""
+
+#: logitune/actions/catalog.py:116
+msgid "Screenshot"
+msgstr ""
+
+#: logitune/actions/catalog.py:117
+msgid "Opens the GNOME screenshot tool"
+msgstr ""
+
+#: logitune/actions/catalog.py:118
+msgid "Capture an area"
+msgstr ""
+
+#: logitune/actions/catalog.py:119
+msgid "Captures a region of the screen directly"
+msgstr ""
+
+#: logitune/actions/catalog.py:120
+msgid "Capture the window"
+msgstr ""
+
+#: logitune/actions/catalog.py:121
+msgid "Captures the focused window directly"
+msgstr ""
+
+#: logitune/actions/catalog.py:122
+msgid "Notification centre"
+msgstr ""
+
+#: logitune/actions/catalog.py:125
+msgid "Switch windows"
+msgstr ""
+
+#: logitune/actions/catalog.py:126
+msgid "Maximise/restore"
+msgstr ""
+
+#: logitune/actions/catalog.py:127
+msgid "Minimise"
+msgstr ""
+
+#: logitune/actions/catalog.py:128
+msgid "Close the window"
+msgstr ""
+
+#: logitune/actions/catalog.py:129
+msgid "Tile left"
+msgstr ""
+
+#: logitune/actions/catalog.py:130
+msgid "Tile right"
+msgstr ""
+
+#: logitune/actions/catalog.py:131
+msgid "Previous workspace"
+msgstr ""
+
+#: logitune/actions/catalog.py:132
+msgid "Next workspace"
+msgstr ""
+
+#: logitune/actions/catalog.py:133
+msgid "Move the window left"
+msgstr ""
+
+#: logitune/actions/catalog.py:135
+msgid "Move the window right"
+msgstr ""
+
+#: logitune/actions/catalog.py:139
+msgid "Play/pause"
+msgstr ""
+
+#: logitune/actions/catalog.py:140
+msgid "Controls the active player over MPRIS"
+msgstr ""
+
+#: logitune/actions/catalog.py:141
+msgid "Next track"
+msgstr ""
+
+#: logitune/actions/catalog.py:141
+msgid "Skips to the next track"
+msgstr ""
+
+#: logitune/actions/catalog.py:142
+msgid "Previous track"
+msgstr ""
+
+#: logitune/actions/catalog.py:142
+msgid "Goes back one track"
+msgstr ""
+
+#: logitune/actions/catalog.py:143
+msgid "Stop"
+msgstr ""
+
+#: logitune/actions/catalog.py:143
+msgid "Stops playback"
+msgstr ""
+
+#: logitune/actions/catalog.py:144
+msgid "Volume up"
+msgstr ""
+
+#: logitune/actions/catalog.py:145
+msgid "Volume down"
+msgstr ""
+
+#: logitune/actions/catalog.py:148
+msgid "Mute"
+msgstr ""
+
+#: logitune/actions/catalog.py:150
+msgid "Silences the audio output"
+msgstr ""
+
+#: logitune/actions/catalog.py:160
+msgid "Microphone mute"
+msgstr ""
+
+#: logitune/actions/catalog.py:162
+msgid "Silences the default audio input"
+msgstr ""
+
+#: logitune/actions/catalog.py:168
+msgid "Copy"
+msgstr ""
+
+#: logitune/actions/catalog.py:169
+msgid "Paste"
+msgstr ""
+
+#: logitune/actions/catalog.py:170
+msgid "Cut"
+msgstr ""
+
+#: logitune/actions/catalog.py:171
+msgid "Undo"
+msgstr ""
+
+#: logitune/actions/catalog.py:172
+msgid "Redo"
+msgstr ""
+
+#: logitune/actions/catalog.py:173
+msgid "Select all"
+msgstr ""
+
+#: logitune/actions/catalog.py:174
+msgid "Save"
+msgstr ""
+
+#: logitune/actions/catalog.py:175
+msgid "Find"
+msgstr ""
+
+#: logitune/actions/catalog.py:176
+msgid "Zoom in"
+msgstr ""
+
+#: logitune/actions/catalog.py:177
+msgid "Zoom out"
+msgstr ""
+
+#: logitune/actions/catalog.py:178
+msgid "Actual size"
+msgstr ""
+
+#: logitune/actions/catalog.py:181
+msgid "Back"
+msgstr ""
+
+#: logitune/actions/catalog.py:182
+msgid "Forward"
+msgstr ""
+
+#: logitune/actions/catalog.py:183
+msgid "Reload"
+msgstr ""
+
+#: logitune/actions/catalog.py:184
+msgid "New tab"
+msgstr ""
+
+#: logitune/actions/catalog.py:185
+msgid "Close tab"
+msgstr ""
+
+#: logitune/actions/catalog.py:186
+msgid "Reopen closed tab"
+msgstr ""
+
+#: logitune/actions/catalog.py:187
+msgid "Next tab"
+msgstr ""
+
+#: logitune/actions/catalog.py:188
+msgid "Previous tab"
+msgstr ""
+
+#: logitune/actions/catalog.py:193
+msgid "Lock/free the wheel"
+msgstr ""
+
+#: logitune/actions/catalog.py:195
+msgid "Toggles between ratchet and freewheel"
+msgstr ""
+
+#: logitune/actions/catalog.py:200
+msgid "Change sensitivity"
+msgstr ""
+
+#: logitune/actions/catalog.py:202
+msgid "Moves to the next DPI in the list, or toggles sniper mode"
+msgstr ""
+
+#: logitune/actions/catalog.py:204
+msgid "DPI values to cycle"
+msgstr ""
+
+#: logitune/actions/catalog.py:210
+msgid "Switch computer"
+msgstr ""
+
+#: logitune/actions/catalog.py:212
+msgid "Easy-Switch to the next paired channel"
+msgstr ""
+
+#: logitune/actions/catalog.py:217
+msgid "Vibrate"
+msgstr ""
+
+#: logitune/actions/catalog.py:219
+msgid "Plays a haptic motor pattern"
+msgstr ""
+
+#: logitune/actions/catalog.py:221
+msgid "Pattern (0–14)"
+msgstr ""
+
+#: logitune/actions/catalog.py:229 logitune/actions/spec.py:63
+msgid "Open an application"
+msgstr ""
+
+#: logitune/actions/catalog.py:231
+msgid "Starts an installed application"
+msgstr ""
+
+#: logitune/actions/catalog.py:232
+msgid "Application"
+msgstr ""
+
+#: logitune/actions/catalog.py:238
+msgid "Open an address"
+msgstr ""
+
+#: logitune/actions/catalog.py:240
+msgid "Opens a site, file or folder in the default application"
+msgstr ""
+
+#: logitune/actions/catalog.py:241
+msgid "Address or path"
+msgstr ""
+
+#: logitune/actions/catalog.py:249
+msgid "Keyboard shortcut"
+msgstr ""
+
+#: logitune/actions/catalog.py:252
+msgid "Shortcut"
+msgstr ""
+
+#: logitune/actions/catalog.py:258
+msgid "Run a command"
+msgstr ""
+
+#: logitune/actions/catalog.py:260
+msgid "Runs a command line; the escape hatch for whatever the catalogue misses"
+msgstr ""
+
+#: logitune/actions/catalog.py:261
+msgid "Command line"
+msgstr ""
+
+#: logitune/actions/gestures.py:62
+msgid "tap"
+msgstr ""
+
+#: logitune/actions/gestures.py:63
+msgid "double tap"
+msgstr ""
+
+#: logitune/actions/gestures.py:64
+msgid "hold"
+msgstr ""
+
+#: logitune/actions/gestures.py:65
+msgid "drag up"
+msgstr ""
+
+#: logitune/actions/gestures.py:66
+msgid "drag down"
+msgstr ""
+
+#: logitune/actions/gestures.py:67
+msgid "drag left"
+msgstr ""
+
+#: logitune/actions/gestures.py:68
+msgid "drag right"
+msgstr ""
+
+#: logitune/actions/spec.py:56
+msgid "System"
+msgstr ""
+
+#: logitune/actions/spec.py:57
+msgid "Windows and workspaces"
+msgstr ""
+
+#: logitune/actions/spec.py:58
+msgid "Media"
+msgstr ""
+
+#: logitune/actions/spec.py:59
+msgid "Meeting controls"
+msgstr ""
+
+#: logitune/actions/spec.py:60
+msgid "Editing"
+msgstr ""
+
+#: logitune/actions/spec.py:61
+msgid "Browser"
+msgstr ""
+
+#: logitune/actions/spec.py:62
+msgid "Mouse"
+msgstr ""
+
+#: logitune/actions/spec.py:64
+msgid "Custom"
+msgstr ""
+
+#: logitune/ui/action_picker.py:38
+msgid "Choose an action"
+msgstr ""
+
+#: logitune/ui/action_picker.py:48
+msgid "Filter actions"
+msgstr ""
+
+#: logitune/ui/action_picker.py:74
+msgid "Recommended"
+msgstr ""
+
+#: logitune/ui/action_picker.py:158
+msgid "Assign"
+msgstr ""
+
+#: logitune/ui/app_picker.py:31
+msgid "Choose an application"
+msgstr ""
+
+#: logitune/ui/app_picker.py:39
+msgid "Filter applications"
+msgstr ""
+
+#: logitune/ui/app_picker.py:52
+msgid "No applications found"
+msgstr ""
+
+#: logitune/ui/app_picker.py:53
+msgid "Check that python3-gi is installed."
+msgstr ""
+
+#: logitune/ui/app_picker.py:82
+msgid "Already has a profile"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:89
+msgid "How this button responds"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:92
+msgid ""
+"One action fires on click. With gestures, the button waits for you to "
+"release before deciding between tap, hold and drag."
+msgstr ""
+
+#: logitune/ui/button_dialog.py:97
+msgid "Use gestures"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:106
+msgid "Gesture recognition is switched off"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:107
+msgid "Turn it on under Gestures, in the main window."
+msgstr ""
+
+#: logitune/ui/button_dialog.py:118
+msgid "Action"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:120
+msgid "On click"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:125 logitune/ui/window.py:646
+msgid "Gestures"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:127
+msgid ""
+"Hold the button and drag. The mouse buzzes when it recognises the direction."
+msgstr ""
+
+#: logitune/ui/button_dialog.py:152 logitune/ui/window.py:452
+msgid "Remove"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:169
+msgid "No action"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:173 logitune/ui/window.py:483
+msgid "Unknown action: {}"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:204
+msgid "Discard the configured gestures?"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:206
+msgid "An action only responds to a click, so {} will be discarded."
+msgstr ""
+
+#: logitune/ui/button_dialog.py:209
+msgid "Keep the gestures"
+msgstr ""
+
+#: logitune/ui/button_dialog.py:210
+msgid "Discard"
+msgstr ""
+
+#: logitune/ui/window.py:60
+msgid "Search for devices again"
+msgstr ""
+
+#: logitune/ui/window.py:84
+msgid "Looking for the mouse…"
+msgstr ""
+
+#: logitune/ui/window.py:85
+msgid "Checking the connected Logitech devices."
+msgstr ""
+
+#: logitune/ui/window.py:94
+msgid "No Logitech mouse found"
+msgstr ""
+
+#: logitune/ui/window.py:97
+msgid ""
+"Switch the mouse on and check that the logi-tune-linux udev rules are "
+"installed."
+msgstr ""
+
+#: logitune/ui/window.py:102
+msgid "Search again"
+msgstr ""
+
+#: logitune/ui/window.py:144
+msgid "The device was found, but reading it failed: {}"
+msgstr ""
+
+#: logitune/ui/window.py:197
+msgid "Could not read: {}. Refresh to try again."
+msgstr ""
+
+#: logitune/ui/window.py:201
+msgid "Device"
+msgstr ""
+
+#: logitune/ui/window.py:206
+msgid "connection: {}"
+msgstr ""
+
+#: logitune/ui/window.py:212
+msgid "Battery"
+msgstr ""
+
+#: logitune/ui/window.py:226
+msgid "Pointer"
+msgstr ""
+
+#: logitune/ui/window.py:227
+msgid "How many dots per inch the sensor reports."
+msgstr ""
+
+#: logitune/ui/window.py:235
+msgid "Sensitivity (DPI)"
+msgstr ""
+
+#: logitune/ui/window.py:236
+msgid "factory default: {}"
+msgstr ""
+
+#: logitune/ui/window.py:243
+msgid "Scrolling"
+msgstr ""
+
+#: logitune/ui/window.py:250
+msgid "Wheel locked (ratchet)"
+msgstr ""
+
+#: logitune/ui/window.py:251
+msgid "Off, the wheel spins freely"
+msgstr ""
+
+#: logitune/ui/window.py:258
+msgid "SmartShift threshold"
+msgstr ""
+
+#: logitune/ui/window.py:260
+msgid "speed that releases the ratchet · default {}"
+msgstr ""
+
+#: logitune/ui/window.py:273
+msgid "High-resolution scrolling"
+msgstr ""
+
+#: logitune/ui/window.py:274
+msgid "Smooth, pixel-by-pixel scrolling"
+msgstr ""
+
+#: logitune/ui/window.py:280
+msgid "Invert wheel direction"
+msgstr ""
+
+#: logitune/ui/window.py:289
+msgid "Invert the thumb wheel"
+msgstr ""
+
+#: logitune/ui/window.py:290
+msgid "Horizontal scrolling"
+msgstr ""
+
+#: logitune/ui/window.py:310
+msgid "Buttons"
+msgstr ""
+
+#: logitune/ui/window.py:311
+msgid "Choose what each programmable button does."
+msgstr ""
+
+#: logitune/ui/window.py:326
+msgid "The service is not running"
+msgstr ""
+
+#: logitune/ui/window.py:329
+msgid ""
+"Button actions are applied by the daemon. Start it with: systemctl --user "
+"enable --now logitune-daemon"
+msgstr ""
+
+#: logitune/ui/window.py:359 logitune/ui/window.py:363
+#: logitune/ui/window.py:379
+msgid "Global"
+msgstr ""
+
+#: logitune/ui/window.py:395
+msgid "Profile for an application"
+msgstr ""
+
+#: logitune/ui/window.py:401
+msgid "Remove this profile"
+msgstr ""
+
+#: logitune/ui/window.py:433
+msgid "Profile created for {}."
+msgstr ""
+
+#: logitune/ui/window.py:448
+msgid "Remove the profile {}?"
+msgstr ""
+
+#: logitune/ui/window.py:449
+msgid "That application's buttons go back to following Global."
+msgstr ""
+
+#: logitune/ui/window.py:451
+msgid "Cancel"
+msgstr ""
+
+#: logitune/ui/window.py:463
+msgid "Profile {} removed."
+msgstr ""
+
+#: logitune/ui/window.py:475 logitune/ui/window.py:615
+msgid "Button default"
+msgstr ""
+
+#: logitune/ui/window.py:478
+msgid "{} gestures: {}"
+msgstr ""
+
+#: logitune/ui/window.py:534
+msgid "{}  ·  inherited from Global"
+msgstr ""
+
+#: logitune/ui/window.py:541
+msgid "Go back to following Global"
+msgstr ""
+
+#: logitune/ui/window.py:543
+msgid "Back to the button default"
+msgstr ""
+
+#: logitune/ui/window.py:588
+msgid "{} is back to its default."
+msgstr ""
+
+#: logitune/ui/window.py:597
+msgid "Swap buttons with each other"
+msgstr ""
+
+#: logitune/ui/window.py:600
+msgid ""
+"Written to the mouse itself: works without the service, but only swaps one "
+"button for another button's behaviour."
+msgstr ""
+
+#: logitune/ui/window.py:649
+msgid ""
+"A button can carry up to seven functions: tap, double tap, hold and drag in "
+"four directions. Since nothing on screen shows which direction does what, "
+"leave this off if you prefer one function per button."
+msgstr ""
+
+#: logitune/ui/window.py:658
+msgid "Recognise gestures"
+msgstr ""
+
+#: logitune/ui/window.py:659
+msgid "Applies to buttons that have gestures configured"
+msgstr ""
+
+#: logitune/ui/window.py:671
+msgid "No button has gestures"
+msgstr ""
+
+#: logitune/ui/window.py:674
+msgid ""
+"Open a button above to set them up; 'logitune actions' lists what can be "
+"assigned."
+msgstr ""
+
+#: logitune/ui/window.py:694
+msgid "switch gestures on"
+msgstr ""
+
+#: logitune/ui/window.py:694
+msgid "switch gestures off"
+msgstr ""
+
+#: logitune/ui/window.py:704
+msgid "Computers"
+msgstr ""
+
+#: logitune/ui/window.py:705
+msgid "The mouse stores three pairings and switches between them."
+msgstr ""
+
+#: logitune/ui/window.py:711
+msgid "connected"
+msgstr ""
+
+#: logitune/ui/window.py:716
+msgid "Switch"
+msgstr ""
+
+#: logitune/ui/window.py:733
+msgid "Could not {}."
+msgstr ""
+
+#: logitune/ui/window.py:756
+msgid "apply the DPI"
+msgstr ""
+
+#: logitune/ui/window.py:767
+msgid "adjust SmartShift"
+msgstr ""
+
+#: logitune/ui/window.py:774
+msgid "change the wheel mode"
+msgstr ""
+
+#: logitune/ui/window.py:781
+msgid "change the scroll resolution"
+msgstr ""
+
+#: logitune/ui/window.py:787
+msgid "invert the wheel"
+msgstr ""
+
+#: logitune/ui/window.py:794
+msgid "invert the thumb wheel"
+msgstr ""
+
+#: logitune/ui/window.py:814
+msgid "Switching computer… the mouse will disconnect from here."
+msgstr ""
+
+#: logitune/ui/window.py:817
+msgid "switch computer"
+msgstr ""
