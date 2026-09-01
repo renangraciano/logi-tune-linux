@@ -64,18 +64,6 @@ class ButtonBinding:
     gestures: Mapping[Gesture, Binding] = field(default_factory=dict)
 
     @property
-    def on_press(self) -> Binding | None:
-        """A ação a disparar quando o botão é apertado.
-
-        Enquanto o reconhecimento de gestos não existe, um botão configurado
-        só com gestos dispara o ``tap`` no clique. É o comportamento que mais
-        se aproxima do pretendido, e evita que o botão fique mudo.
-        """
-        if self.press is not None:
-            return self.press
-        return self.gestures.get(Gesture.TAP)
-
-    @property
     def is_empty(self) -> bool:
         return self.press is None and not self.gestures
 

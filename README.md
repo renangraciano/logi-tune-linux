@@ -49,7 +49,7 @@ GNOME 46, X11.
 | ✅ | **Haptic feedback — 15 waveforms** | `0x19B0` |
 | ✅ | Per-application profiles (X11) | — |
 | ✅ | **53 actions to bind buttons to** | — |
-| 🚧 | Gestures on a held button | `0x1B04` |
+| ✅ | **Seven gestures on one button** | `0x1B04` |
 | 🚧 | Actions Ring radial menu | `0x01A0` |
 
 ## Two things you will not find elsewhere
@@ -224,9 +224,29 @@ can carry seven functions instead of one:
 }
 ```
 
-Until the recogniser lands, only `tap` fires, on click. The hardware is ready:
-every divertable button on the MX Master 4 — the Actions Ring included —
-reports `RAW_XY`, so it streams movement while held.
+Every divertable button on the MX Master 4 — the Actions Ring included —
+reports `RAW_XY`, streaming movement while held, so all seven work on any of
+them. The mouse buzzes when a direction is recognised and again when the action
+fires, which is what makes a gesture usable without looking at the screen.
+
+The thresholds were measured, not guessed — 25 presses on real hardware, kept
+as a regression test. Two findings shaped them:
+
+- An ordinary click can displace the mouse by **98 units**: the hand shoves it
+  while pressing. A distance-only threshold fires drags you never asked for.
+- Accidental movement always arrives in **0 or 1 sample**, a real drag in
+  **29 to 72**. A bump is one jolt, a drag is a stream — so a drag requires
+  distance *and* continuity.
+
+Tune them per hand under `gestures` if your wrist is steadier or shakier than
+the one they were calibrated on:
+
+```json
+"gestures": { "drag_units": 200, "drag_samples": 3, "hold_ms": 500, "double_tap_ms": 400 }
+```
+
+Measure your own with `logitune watch <cid> --raw-xy`, which prints a
+per-button summary of duration, displacement and sample count.
 
 The daemon blocks in `select` on the X and hidraw descriptors — no polling, no
 CPU at rest.
@@ -274,7 +294,6 @@ If you decode something, please [open an issue](https://github.com/renangraciano
 
 ## Roadmap
 
-- [ ] Gestures: tap, double tap, hold and drag in four directions on one button
 - [ ] Profile and button-mapping UI, so the config file becomes optional
 - [ ] Actions Ring radial menu via a GNOME Shell extension
 - [ ] Per-application profiles on Wayland (same extension solves both)

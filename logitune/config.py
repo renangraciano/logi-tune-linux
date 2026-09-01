@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from logitune.actions.gestures import GestureThresholds
 from logitune.actions.binding import (
     BindingError,
     ButtonBinding,
@@ -166,6 +167,28 @@ class Config:
     #: Aplicado quando nenhum perfil casa, e como base para todos eles.
     default: Settings = field(default_factory=Settings)
     profiles: list[Profile] = field(default_factory=list)
+    #: Limiares do reconhecimento de gestos. Ficam fora dos perfis de
+    #: propósito: eles descrevem a mão de quem usa, não o aplicativo em foco.
+    gestures: dict[str, int] = field(default_factory=dict)
+
+    def gesture_thresholds(self) -> GestureThresholds:
+        """Os limiares configurados, caindo no padrão medido para o resto."""
+        campos = {f for f in GestureThresholds.__dataclass_fields__}
+        valores: dict[str, int] = {}
+        for chave, valor in self.gestures.items():
+            if chave not in campos:
+                logger.warning("limiar de gesto desconhecido ignorado: %s", chave)
+                continue
+            try:
+                valores[chave] = int(valor)
+            except (TypeError, ValueError):
+                logger.warning("limiar de gesto inválido ignorado: %s=%r", chave, valor)
+
+        try:
+            return GestureThresholds(**valores)
+        except ValueError as exc:
+            logger.error("limiares de gesto inválidos (%s); usando os padrões", exc)
+            return GestureThresholds()
 
     def profile_for(self, window_class: str, window_title: str) -> Profile | None:
         """O primeiro perfil que casa com a janela em foco."""
@@ -188,6 +211,7 @@ class Config:
             "version": self.version,
             "default": asdict(self.default),
             "profiles": [asdict(p) for p in self.profiles],
+            "gestures": dict(self.gestures),
         }
 
     @classmethod
@@ -223,6 +247,7 @@ class Config:
             version=CONFIG_VERSION,
             default=build_settings(data.get("default", {})),
             profiles=profiles,
+            gestures=dict(data.get("gestures", {}) or {}),
         )
 
     def save(self, path: Path | None = None) -> Path:
