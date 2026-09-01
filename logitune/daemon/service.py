@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import logging
 import select
-import shlex
 import signal
-import subprocess
 import sys
 from dataclasses import dataclass
 
 from logitune import config as config_module
+from logitune.actions import ActionError, ResolvedAction, UnknownAction, resolve
+from logitune.actions.backends import keys as keys_backend
 from logitune.config import Config, Settings
 from logitune.daemon.focus import FocusWatcher, Window
 from logitune.device import LogitechDevice, close_devices, discover_devices
@@ -112,20 +112,60 @@ class Daemon:
         self._running = True
         #: Botões que desviamos e precisamos restaurar ao sair.
         self._diverted: list[int] = []
-        #: CID para comando, do perfil ativo.
-        self._actions: dict[int, str] = {}
+        #: CID para a ação já resolvida, do perfil ativo.
+        self._actions: dict[int, ResolvedAction] = {}
 
     # -- ciclo de vida -------------------------------------------------
 
     def stop(self, *_args) -> None:
         self._running = False
 
+    def _resolve_bindings(self, settings: Settings) -> dict[int, ResolvedAction]:
+        """Traduz a configuração em ações prontas para rodar.
+
+        O que não resolve fica de fora, e o botão mantém a função de fábrica.
+        Essa é a escolha deliberada: um botão desviado cuja ação falha não faz
+        nada e não avisa, o que é pior do que um botão que continua clicando.
+        """
+        resolvidas: dict[int, ResolvedAction] = {}
+
+        for cid, binding in settings.binding_pairs():
+            if binding.gestures and binding.press is None:
+                logger.info(
+                    "botão 0x%04X tem gestos configurados; por enquanto só o "
+                    "'tap' dispara, no clique",
+                    cid,
+                )
+            press = binding.on_press
+            if press is None:
+                continue
+
+            try:
+                acao = resolve(press)
+            except UnknownAction as exc:
+                logger.warning("botão 0x%04X: %s", cid, exc)
+                continue
+
+            disponivel = acao.available()
+            if not disponivel.usable:
+                logger.warning(
+                    "botão 0x%04X segue de fábrica: %s não roda aqui (%s)",
+                    cid, acao.label, disponivel.reason,
+                )
+                continue
+            if not disponivel.ok:
+                logger.info("botão 0x%04X → %s (%s)", cid, acao.label, disponivel.reason)
+
+            resolvidas[cid] = acao
+
+        return resolvidas
+
     def _setup_actions(self, settings: Settings) -> None:
-        """Desvia os botões que têm comando e libera os que não têm mais."""
+        """Desvia os botões que têm ação e libera os que não têm mais."""
         if self.device.controls is None:
             return
 
-        desired = dict(settings.action_pairs())
+        desired = self._resolve_bindings(settings)
         controls = {c.control_id: c for c in self.device.controls.list_controls()}
 
         for cid in list(self._diverted):
@@ -188,26 +228,15 @@ class Daemon:
         self.state.profile_name = name
         self.state.window = window
 
-    def _run_command(self, command: str) -> None:
+    def _fire(self, cid: int, action: ResolvedAction) -> None:
+        """Executa a ação de um botão sem deixar que ela derrube o daemon."""
+        logger.info("botão 0x%04X → %s", cid, action.label)
         try:
-            argv = shlex.split(command)
-        except ValueError as exc:
-            logger.error("comando mal formado %r: %s", command, exc)
-            return
-        if not argv:
-            return
-        try:
-            # SIGCHLD está em SIG_IGN (ver run), então o kernel recolhe o filho
-            # sozinho quando ele termina.
-            subprocess.Popen(  # noqa: S603 - o comando vem da config do usuário
-                argv,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-        except OSError as exc:
-            logger.error("não consegui executar %r: %s", command, exc)
+            action.run(self.device)
+        except ActionError as exc:
+            logger.error("a ação %s falhou: %s", action.spec.id, exc)
+        except Exception:  # noqa: BLE001 - um backend novo não pode matar o laço
+            logger.exception("erro inesperado na ação %s", action.spec.id)
 
     def _handle_device_event(self) -> None:
         """Processa tudo que o dispositivo enfileirou desde a última acordada.
@@ -229,10 +258,9 @@ class Daemon:
                 continue
 
             for cid in event.just_pressed:
-                command = self._actions.get(cid)
-                if command:
-                    logger.info("botão 0x%04X → %s", cid, command)
-                    self._run_command(command)
+                action = self._actions.get(cid)
+                if action is not None:
+                    self._fire(cid, action)
 
         logger.debug("limite de relatórios por ciclo atingido")
 
@@ -248,11 +276,11 @@ class Daemon:
 
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
-        # Os comandos de botão são disparados e esquecidos: nunca esperamos por
-        # eles. O módulo subprocess recolhe os filhos anteriores só quando um
-        # novo Popen é criado, então sem isto o último comando executado fica
-        # como defunct até que outro botão seja acionado. Passar SIGCHLD para
-        # SIG_IGN entrega a colheita ao kernel, que a faz na hora.
+        # As ações que abrem programas são disparadas e esquecidas: nunca
+        # esperamos por elas. O módulo subprocess recolhe os filhos anteriores
+        # só quando um novo Popen é criado, então sem isto o último comando
+        # executado fica como defunct até que outro botão seja acionado. Passar
+        # SIGCHLD para SIG_IGN entrega a colheita ao kernel, que a faz na hora.
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
         device_fd = self.device.transport.fileno
@@ -284,6 +312,7 @@ class Daemon:
         finally:
             self.restore()
             self.focus.close()
+            keys_backend.close()
 
         logger.info("daemon encerrado")
         return 0
