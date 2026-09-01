@@ -291,6 +291,11 @@ If you decode something, please [open an issue](https://github.com/renangraciano
   else works. The daemon says so on startup.
 - **Running alongside Solaar** works, but both write to the same device and can
   undo each other. Use one at a time.
+- **Coming from Solaar?** It diverts the thumb wheel (`thumb-scroll-mode`) and
+  does not restore it when uninstalled. The flag lives in the mouse's firmware,
+  so the wheel keeps reporting to software that is no longer there and simply
+  stops scrolling. `logitune doctor` detects this; `logitune scroll
+  --no-thumb-divert` fixes it.
 - **Wheel mode is volatile**: with SmartShift active the firmware switches
   between ratchet and freewheel on its own. Forcing a mode lasts until the next
   fast scroll.
