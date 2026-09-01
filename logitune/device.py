@@ -23,6 +23,7 @@ from logitune.hidpp.features.hosts import ChangeHost, HostsInfo
 from logitune.hidpp.features.info import DeviceFriendlyName, DeviceName, DeviceType
 from logitune.hidpp.features.scroll import HiResWheel, SmartShift, ThumbWheel
 from logitune.hidpp.transport import HidrawTransport, discover_nodes
+from logitune.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class DeviceIdentity:
 
     @property
     def connection(self) -> str:
-        return "receptor" if self.device_index != _DIRECT_INDEX else "direta"
+        return _("receiver") if self.device_index != _DIRECT_INDEX else _("direct")
 
 
 class LogitechDevice:
