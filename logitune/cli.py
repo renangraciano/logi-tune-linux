@@ -571,6 +571,82 @@ def cmd_haptic(device: LogitechDevice, args: argparse.Namespace) -> int:
     return 0
 
 
+class _Pressionada:
+    """Uma pressionada de botão sendo medida, do ▼ ao ▲."""
+
+    def __init__(self, cid: int) -> None:
+        self.cid = cid
+        self.inicio = time.monotonic()
+        self.dx = 0
+        self.dy = 0
+        self.amostras = 0
+        #: Maior deslocamento instantâneo visto, útil para saber se o limiar
+        #: precisa olhar velocidade além de distância.
+        self.pico = 0
+
+    def acumular(self, dx: int, dy: int) -> None:
+        self.dx += dx
+        self.dy += dy
+        self.amostras += 1
+        self.pico = max(self.pico, abs(dx), abs(dy))
+
+    @property
+    def ms(self) -> float:
+        return (time.monotonic() - self.inicio) * 1000
+
+    @property
+    def distancia(self) -> float:
+        return (self.dx * self.dx + self.dy * self.dy) ** 0.5
+
+    @property
+    def direcao(self) -> str:
+        """O eixo dominante, que é como um arrasto vira uma direção."""
+        if abs(self.dx) >= abs(self.dy):
+            return "direita" if self.dx > 0 else "esquerda"
+        return "baixo" if self.dy > 0 else "cima"
+
+
+def _resumo_calibragem(medidas: dict[int, list[_Pressionada]], controls: dict) -> None:
+    """Mostra a estatística que decide os limiares dos gestos.
+
+    Os números do plano — limiar 50, hold 250 ms, duplo toque 300 ms — são
+    chute informado. Estes são os seus.
+    """
+    if not medidas:
+        return
+
+    def faixa(valores: list[float], formato: str = "{:.0f}") -> str:
+        ordenados = sorted(valores)
+        mediana = ordenados[len(ordenados) // 2]
+        return (
+            f"mín {formato.format(ordenados[0])}  "
+            f"mediana {formato.format(mediana)}  "
+            f"máx {formato.format(ordenados[-1])}"
+        )
+
+    print()
+    print(_paint("Calibragem", _BOLD))
+    for cid, lista in sorted(medidas.items()):
+        rotulo = controls[cid].label if cid in controls else f"0x{cid:04X}"
+        print(f"  {_paint(rotulo, _BOLD)} — {len(lista)} pressionada(s)")
+        print(f"    duração      {faixa([p.ms for p in lista])} ms")
+        print(f"    deslocamento {faixa([p.distancia for p in lista])} unidades")
+        print(f"    amostras     {faixa([float(p.amostras) for p in lista])} por pressionada")
+
+    todas = [p for lista in medidas.values() for p in lista]
+    paradas = [p for p in todas if p.distancia < 50]
+    if paradas:
+        limiar = max(p.distancia for p in paradas)
+        print()
+        print(
+            _paint(
+                f"Sugestão: um clique parado seu deslocou no máximo "
+                f"{limiar:.0f} unidades. Um limiar confortável fica acima disso.",
+                _DIM,
+            )
+        )
+
+
 def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
     """Desvia botões e mostra os eventos que o dispositivo manda.
 
@@ -614,17 +690,36 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
             for cid in alvos:
                 if not controls[cid].is_divertable:
                     continue
-                device.controls.set_reporting(cid, diverted=True)
+                device.controls.set_reporting(cid, diverted=True, raw_xy=args.raw_xy or None)
                 desviados.append(cid)
 
             nomes = ", ".join(controls[c].label for c in desviados) or "nenhum"
             print(_paint(f"Escutando eventos. Botões desviados: {nomes}", _BOLD))
+            if args.raw_xy:
+                print(
+                    _paint(
+                        "Movimento bruto ligado: segure um botão e arraste para medir.",
+                        _DIM,
+                    )
+                )
         print(_paint("Pressione os botões no mouse. Ctrl+C encerra.", _DIM))
+
+        #: Pressionadas em andamento e o histórico do que já foi solto.
+        em_curso: dict[int, _Pressionada] = {}
+        medidas: dict[int, list[_Pressionada]] = {}
 
         limite = time.monotonic() + args.seconds if args.seconds else None
         while limite is None or time.monotonic() < limite:
             notification = listener.poll(timeout=0.5)
             if notification is None:
+                continue
+
+            movimento = listener.as_raw_movement(notification)
+            if movimento is not None:
+                # O evento de movimento não diz de qual botão ele é: só existe
+                # enquanto algum está preso. Atribuímos a todos os que estão.
+                for pressionada in em_curso.values():
+                    pressionada.acumular(movimento.dx, movimento.dy)
                 continue
 
             evento = listener.as_button_event(notification)
@@ -635,9 +730,23 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
             for cid in sorted(evento.just_pressed):
                 rotulo = controls[cid].label if cid in controls else f"0x{cid:04X}"
                 print(f"  {_paint('▼ pressionado', _OK)} {rotulo} (0x{cid:04X})")
+                em_curso[cid] = _Pressionada(cid)
             for cid in sorted(evento.just_released):
                 rotulo = controls[cid].label if cid in controls else f"0x{cid:04X}"
-                print(f"  {_paint('▲ solto      ', _DIM)} {rotulo} (0x{cid:04X})")
+                pressionada = em_curso.pop(cid, None)
+                if pressionada is None:
+                    print(f"  {_paint('▲ solto      ', _DIM)} {rotulo} (0x{cid:04X})")
+                    continue
+                medidas.setdefault(cid, []).append(pressionada)
+                detalhe = (
+                    f"{pressionada.ms:.0f} ms, "
+                    f"Δ({pressionada.dx:+d}, {pressionada.dy:+d}) "
+                    f"= {pressionada.distancia:.0f} un, "
+                    f"{pressionada.amostras} amostras"
+                )
+                if pressionada.distancia >= 20:
+                    detalhe += f", {_paint(pressionada.direcao, _OK)}"
+                print(f"  {_paint('▲ solto      ', _DIM)} {rotulo}  {detalhe}")
     except KeyboardInterrupt:
         print()
     finally:
@@ -645,11 +754,15 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
         # o programa saísse. Restaurar aqui não é opcional.
         for cid in desviados:
             try:
-                device.controls.set_reporting(cid, diverted=False)
+                # O raw_xy também precisa cair: deixá-lo ligado faria o mouse
+                # continuar mandando movimento para ninguém.
+                device.controls.set_reporting(cid, diverted=False, raw_xy=False)
             except (HidppError, NoResponse) as exc:
                 print(f"Aviso: 0x{cid:04X} continuou desviado: {exc}", file=sys.stderr)
         if desviados:
             print(_paint("Botões restaurados.", _DIM))
+        if args.raw_xy:
+            _resumo_calibragem(medidas, controls)
 
     return 0
 
@@ -858,6 +971,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--passive",
         action="store_true",
         help="só escuta, sem desviar nem restaurar (convive com o daemon)",
+    )
+    p.add_argument(
+        "--raw-xy",
+        action="store_true",
+        help="mede o movimento com o botão preso, para calibrar os gestos",
     )
     p.set_defaults(func=cmd_watch)
 
