@@ -8,3 +8,9 @@ dist/
 
 # Compilados a partir de po/*.po pelo build (scripts/build-translations.sh)
 logitune/locale/
+
+# Material de marca de terceiros não entra no repositório: sob GPL-3 ele
+# precisaria ser redistribuível, e não é. Referências visuais ficam locais.
+docs/telas-mac/
+*.jpg
+*.jpeg
