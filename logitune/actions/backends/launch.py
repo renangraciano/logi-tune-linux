@@ -42,6 +42,24 @@ class AppEntry:
     desktop_id: str
     name: str
     icon: str = ""
+    #: Classe da janela, para casar um perfil com o que está em foco.
+    wm_class: str = ""
+
+
+def _wm_class(info, desktop_id: str) -> str:
+    """A classe de janela que este aplicativo provavelmente terá.
+
+    ``StartupWMClass`` é a resposta autoritativa quando o arquivo .desktop a
+    declara. Quando não declara — a maioria dos casos — o identificador sem o
+    sufixo é o palpite que acerta quase sempre, porque é dele que os toolkits
+    derivam a classe.
+    """
+    declarada = info.get_startup_wm_class() if hasattr(info, "get_startup_wm_class") else None
+    if declarada:
+        return declarada
+    base = desktop_id.removesuffix(".desktop")
+    # "org.gnome.Calculator" casa melhor pelo último segmento.
+    return base.rsplit(".", 1)[-1] if "." in base else base
 
 
 def list_apps() -> list[AppEntry]:
@@ -52,11 +70,13 @@ def list_apps() -> list[AppEntry]:
         if not info.should_show():
             continue
         icone = info.get_icon()
+        desktop_id = info.get_id() or ""
         entradas.append(
             AppEntry(
-                desktop_id=info.get_id() or "",
+                desktop_id=desktop_id,
                 name=info.get_display_name() or info.get_name() or "",
                 icon=icone.to_string() if icone else "",
+                wm_class=_wm_class(info, desktop_id),
             )
         )
     return sorted(entradas, key=lambda e: e.name.casefold())

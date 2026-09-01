@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import logging
 import sys
 import time
@@ -423,15 +424,18 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
         )
 
     # -- síntese de teclas -------------------------------------------
-    try:
-        import evdev  # noqa: F401
-
-        tem_evdev = True
-        detalhe_evdev = "python3-evdev disponível"
-    except ImportError:
-        tem_evdev = False
-        detalhe_evdev = "ausente — sudo apt install python3-evdev"
-    itens.append((tem_evdev, "Biblioteca evdev", detalhe_evdev))
+    # find_spec responde "está instalado?" sem executar o módulo, que é
+    # exatamente a pergunta — e evita importar algo só para descartar.
+    tem_evdev = importlib.util.find_spec("evdev") is not None
+    itens.append(
+        (
+            tem_evdev,
+            "Biblioteca evdev",
+            "python3-evdev disponível"
+            if tem_evdev
+            else "ausente — sudo apt install python3-evdev",
+        )
+    )
 
     uinput = Path("/dev/uinput")
     if not uinput.exists():
@@ -459,12 +463,16 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
         )
     )
 
-    try:
-        import Xlib  # noqa: F401
-
-        itens.append((True, "python-xlib", "disponível (perfis por aplicação)"))
-    except ImportError:
-        itens.append((False, "python-xlib", "ausente — sudo apt install python3-xlib"))
+    tem_xlib = importlib.util.find_spec("Xlib") is not None
+    itens.append(
+        (
+            tem_xlib,
+            "python-xlib",
+            "disponível (perfis por aplicação)"
+            if tem_xlib
+            else "ausente — sudo apt install python3-xlib",
+        )
+    )
 
     # -- configuração ------------------------------------------------
     # Um JSON quebrado faz o daemon cair nos padrões em silêncio: os ajustes

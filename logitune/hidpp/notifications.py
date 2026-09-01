@@ -19,7 +19,6 @@ from logitune.hidpp.constants import (
     ERROR_FEATURE_INDEX,
     ERROR_SUB_ID_HIDPP10,
     FeatureID,
-    ReportType,
 )
 from logitune.hidpp.device import Hidpp20Device
 
