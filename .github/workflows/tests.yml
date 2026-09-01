@@ -32,3 +32,8 @@ jobs:
       # e sem acesso a /dev/hidraw.
       - name: Run tests
         run: python -m pytest -q
+
+      # A suíte não abre a janela, então um nome indefinido num caminho da
+      # interface passava despercebido até alguém rodar o aplicativo.
+      - name: Check for undefined names
+        run: python -m pyflakes logitune/

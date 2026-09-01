@@ -22,7 +22,7 @@ from logitune.hidpp.features.haptic import Haptic
 from logitune.hidpp.features.hosts import ChangeHost, HostsInfo
 from logitune.hidpp.features.info import DeviceFriendlyName, DeviceName, DeviceType
 from logitune.hidpp.features.scroll import HiResWheel, SmartShift, ThumbWheel
-from logitune.hidpp.transport import HidrawTransport, HidrawNode, discover_nodes
+from logitune.hidpp.transport import HidrawTransport, discover_nodes
 
 logger = logging.getLogger(__name__)
 

@@ -29,7 +29,7 @@ dependencies = []
 [project.optional-dependencies]
 # O evdev é opcional em produção (só a síntese de teclas o usa), mas os
 # testes que leem atalhos precisam dele — sem isto o CI os pula em silêncio.
-dev = ["pytest>=7", "evdev>=1.6"]
+dev = ["pytest>=7", "evdev>=1.6", "pyflakes>=3"]
 
 [project.scripts]
 logitune = "logitune.cli:main"
