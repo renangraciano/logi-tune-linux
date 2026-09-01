@@ -26,7 +26,7 @@ Commit message does not follow Conventional Commits.
   <type>(<scope>): <subject>
 
 Types:  feat fix docs refactor perf test build ci chore revert
-Scopes: hidpp actions cli ui daemon config packaging docs ci
+Scopes: hidpp actions cli ui daemon config i18n packaging docs ci
 Subject: imperative, lowercase, no trailing period, under 72 characters.
 
 Example:

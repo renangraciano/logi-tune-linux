@@ -326,7 +326,7 @@ roughly in the order they matter.
 - [#8](https://github.com/renangraciano/logi-tune-linux/issues/8) Profile and
   button-mapping UI, so the config file becomes optional
 - [#9](https://github.com/renangraciano/logi-tune-linux/issues/9) Translate the
-  interface — the window is Portuguese only
+  command line — the window is done, the CLI is still Portuguese
 
 **Visible gaps against Logi Options+**
 
@@ -372,6 +372,29 @@ hardware to get started.
   between ratchet and freewheel on its own. Forcing a mode lasts until the next
   fast scroll.
 - Tested only with the MX Master 4 over a Bolt receiver.
+
+## Translating
+
+The source language is English; everything else is a `gettext` catalogue,
+Brazilian Portuguese included — it was the original, and became a translation
+so that arriving through the README does not mean meeting a language you may
+not read.
+
+```bash
+sudo apt install gettext
+scripts/build-translations.sh          # compile the catalogues to run translated
+LOGITUNE_LANG=pt_BR logitune-gui       # try one without changing your session
+```
+
+To start a new language, copy `po/logi-tune-linux.pot` to `po/<code>.po`, fill
+in the `msgstr` lines, and run the build script. After changing any translatable
+string in the code, run `scripts/update-translations.sh` — the test suite fails
+when the catalogue falls behind, which is what stops a message from quietly
+appearing untranslated in an otherwise translated window.
+
+Installing compiles the catalogues automatically. Without `gettext` on the
+machine the build skips that step with a warning and the interface stays
+English, which is a working program rather than a broken install.
 
 ## Contributing
 
