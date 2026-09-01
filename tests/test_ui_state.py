@@ -63,3 +63,36 @@ class TestConfigStore:
         monkeypatch.setattr(store, "notify_daemon", lambda: True)
         store.update(lambda c: c.default.bindings.__setitem__("0x53", "browser.back"))
         assert destino.stat().st_mode & 0o777 == 0o600
+
+
+class TestNomesComMarkup:
+    """Os títulos das linhas são interpretados como markup Pango.
+
+    Um "&" num nome de aplicativo — "Software & Updates" existe no Ubuntu —
+    derruba a linha inteira, e o GTK só reclama no terminal.
+    """
+
+    def test_nomes_com_e_comercial_sao_escapados(self):
+        import gi
+
+        gi.require_version("Gtk", "4.0")
+        from gi.repository import GLib
+
+        assert GLib.markup_escape_text("Software & Updates") == "Software &amp; Updates"
+
+    def test_o_seletor_escapa_o_nome(self, monkeypatch):
+        import gi
+
+        gi.require_version("Gtk", "4.0")
+        gi.require_version("Adw", "1")
+        from logitune.actions.backends.launch import AppEntry
+        from logitune.ui import app_picker
+
+        monkeypatch.setattr(
+            app_picker,
+            "list_apps",
+            lambda: [AppEntry(desktop_id="x.desktop", name="Software & Updates", wm_class="x")],
+        )
+        picker = app_picker.AppPicker(lambda app: None)
+        titulos = [row.get_title() for row, _ in picker._rows]
+        assert titulos == ["Software &amp; Updates"]

@@ -14,7 +14,9 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
+from logitune.config import Match, Profile, Settings  # noqa: E402
 from logitune.ui.action_picker import ActionPicker  # noqa: E402
+from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
@@ -46,6 +48,9 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._store = ConfigStore()
         #: Linhas de botão por CID, para atualizar sem remontar a página.
         self._button_rows: dict[int, Adw.ActionRow] = {}
+        self._button_controls: dict[int, object] = {}
+        #: Perfil em edição: ``None`` é o global, senão o índice em profiles.
+        self._profile_index: int | None = None
 
         self._toasts = Adw.ToastOverlay()
         header = Adw.HeaderBar()
@@ -55,8 +60,16 @@ class LogituneWindow(Adw.ApplicationWindow):
         refresh.connect("clicked", lambda _b: self.reload())
         header.pack_end(refresh)
 
+        self._profile_bar = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=6,
+            margin_start=12, margin_end=12, margin_top=6, margin_bottom=6,
+            visible=False,
+        )
+
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(header)
+        toolbar.add_top_bar(self._profile_bar)
         toolbar.set_content(self._toasts)
         self.set_content(toolbar)
 
@@ -174,6 +187,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroller.set_child(page)
         self._toasts.set_child(scroller)
+        self._rebuild_profile_bar()
 
         if falhas:
             self._toast(
@@ -288,18 +302,17 @@ class LogituneWindow(Adw.ApplicationWindow):
         if not remappable:
             return
 
-        config = self._store.load()
-        vinculos = dict(config.default.binding_pairs())
-
         group = Adw.PreferencesGroup(
             title="Botões",
             description="Escolha o que cada botão programável deve fazer.",
         )
 
         self._button_rows = {}
+        self._button_controls = {}
         divertable = [c for c in controls if c.is_divertable]
         for control in divertable:
-            group.add(self._make_button_row(control, vinculos.get(control.control_id)))
+            self._button_controls[control.control_id] = control
+            group.add(self._make_button_row(control))
 
         if not self._store.daemon_running():
             # Um vínculo sem daemon fica gravado e não acontece. Melhor dizer
@@ -317,6 +330,139 @@ class LogituneWindow(Adw.ApplicationWindow):
         page.add(group)
         self._add_remap_group(page, device, controls, remappable)
 
+    # -- perfis --------------------------------------------------------
+
+    def _edited_settings(self, config) -> Settings:
+        """Os ajustes do perfil em edição.
+
+        O global é o ``default`` da configuração; ele também é a base sobre a
+        qual os outros se aplicam, e é por isso que um perfil pode deixar um
+        botão em branco e ainda assim ele funcionar.
+        """
+        if self._profile_index is None:
+            return config.default
+        try:
+            return config.profiles[self._profile_index].settings
+        except IndexError:
+            # O perfil sumiu do arquivo entre uma leitura e outra.
+            self._profile_index = None
+            return config.default
+
+    def _profile_label(self, config) -> str:
+        if self._profile_index is None:
+            return "Global"
+        try:
+            return config.profiles[self._profile_index].name
+        except IndexError:
+            return "Global"
+
+    def _rebuild_profile_bar(self) -> None:
+        """Monta as abas: o global, um por aplicativo, e o botão de somar."""
+        filho = self._profile_bar.get_first_child()
+        while filho is not None:
+            proximo = filho.get_next_sibling()
+            self._profile_bar.remove(filho)
+            filho = proximo
+
+        config = self._store.load()
+        abas = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, hexpand=True)
+        abas.add_css_class("linked")
+
+        grupo: Gtk.ToggleButton | None = None
+        for indice in [None, *range(len(config.profiles))]:
+            rotulo = "Global" if indice is None else config.profiles[indice].name
+            botao = Gtk.ToggleButton(label=rotulo)
+            botao.set_active(indice == self._profile_index)
+            if grupo is None:
+                grupo = botao
+            else:
+                botao.set_group(grupo)
+            botao.connect("toggled", self._on_profile_toggled, indice)
+            abas.append(botao)
+
+        scroller = Gtk.ScrolledWindow(
+            vscrollbar_policy=Gtk.PolicyType.NEVER, hexpand=True, propagate_natural_width=True
+        )
+        scroller.set_child(abas)
+        self._profile_bar.append(scroller)
+
+        adicionar = Gtk.Button(icon_name="list-add-symbolic", tooltip_text="Perfil para um aplicativo")
+        adicionar.add_css_class("flat")
+        adicionar.connect("clicked", lambda _b: self._add_profile())
+        self._profile_bar.append(adicionar)
+
+        if self._profile_index is not None:
+            remover = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Remover este perfil")
+            remover.add_css_class("flat")
+            remover.connect("clicked", lambda _b: self._remove_profile())
+            self._profile_bar.append(remover)
+
+        self._profile_bar.set_visible(True)
+
+    def _on_profile_toggled(self, botao: Gtk.ToggleButton, indice) -> None:
+        if not botao.get_active() or self._profile_index == indice:
+            return
+        self._profile_index = indice
+        self._refresh_all_button_rows()
+
+    def _add_profile(self) -> None:
+        config = self._store.load()
+        existentes = {c for p in config.profiles for c in p.match.wm_class}
+
+        def escolhido(app) -> None:
+            def acrescentar(cfg) -> None:
+                cfg.profiles.append(
+                    Profile(
+                        name=app.name,
+                        match=Match(wm_class=[app.wm_class]),
+                        settings=Settings(),
+                    )
+                )
+
+            self._store.update(acrescentar)
+            # Já entra no perfil recém-criado: quem o criou quer configurá-lo.
+            self._profile_index = len(self._store.load().profiles) - 1
+            self._rebuild_profile_bar()
+            self._refresh_all_button_rows()
+            self._toast(f"Perfil criado para {app.name}.")
+
+        AppPicker(escolhido, existing=existentes).present(self)
+
+    def _remove_profile(self) -> None:
+        if self._profile_index is None:
+            return
+        indice = self._profile_index
+        config = self._store.load()
+        try:
+            nome = config.profiles[indice].name
+        except IndexError:
+            return
+
+        dialogo = Adw.AlertDialog(
+            heading=f"Remover o perfil {GLib.markup_escape_text(nome)}?",
+            body="Os botões desse aplicativo voltam a seguir o perfil Global.",
+        )
+        dialogo.add_response("cancelar", "Cancelar")
+        dialogo.add_response("remover", "Remover")
+        dialogo.set_response_appearance("remover", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialogo.set_default_response("cancelar")
+
+        def respondeu(_d, resposta: str) -> None:
+            if resposta != "remover":
+                return
+            self._store.update(lambda c: c.profiles.pop(indice))
+            self._profile_index = None
+            self._rebuild_profile_bar()
+            self._refresh_all_button_rows()
+            self._toast(f"Perfil {nome} removido.")
+
+        dialogo.connect("response", respondeu)
+        dialogo.present(self)
+
+    def _refresh_all_button_rows(self) -> None:
+        for cid in list(self._button_rows):
+            self._refresh_button_row_by_cid(cid)
+
     def _describe_binding(self, binding: ButtonBinding | None) -> str:
         """Como a linha do botão descreve o que ele faz hoje."""
         if binding is None or binding.is_empty:
@@ -330,20 +476,30 @@ class LogituneWindow(Adw.ApplicationWindow):
             # A configuração pode citar uma ação que não existe mais.
             return f"Ação desconhecida: {binding.press.action}"
 
-    def _make_button_row(self, control, binding: ButtonBinding | None) -> Adw.ActionRow:
-        row = Adw.ActionRow(
-            title=control.label,
-            subtitle=self._describe_binding(binding),
-            activatable=True,
-        )
+    def _binding_for(self, cid: int) -> tuple[ButtonBinding | None, bool]:
+        """O vínculo em vigor para este botão e se ele é herdado.
+
+        Um perfil de aplicativo que não diz nada sobre um botão não o desliga:
+        ele deixa valer o global. Mostrar isso é o que evita a pergunta "por
+        que esse botão faz algo se eu não configurei nada aqui".
+        """
+        config = self._store.load()
+        proprio = dict(self._edited_settings(config).binding_pairs()).get(cid)
+        if proprio is not None and not proprio.is_empty:
+            return proprio, False
+        if self._profile_index is None:
+            return None, False
+        herdado = dict(config.default.binding_pairs()).get(cid)
+        return herdado, herdado is not None
+
+    def _make_button_row(self, control) -> Adw.ActionRow:
+        row = Adw.ActionRow(title=control.label, activatable=True)
 
         limpar = Gtk.Button(
             icon_name="edit-clear-symbolic",
             valign=Gtk.Align.CENTER,
-            tooltip_text="Voltar ao padrão do botão",
         )
         limpar.add_css_class("flat")
-        limpar.set_sensitive(binding is not None and not binding.is_empty)
         limpar.connect("clicked", lambda _b, c=control: self._clear_binding(c))
         row.add_suffix(limpar)
         row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
@@ -353,33 +509,46 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         row.connect("activated", lambda _r, c=control: self._pick_action(c))
         self._button_rows[control.control_id] = row
+        self._refresh_button_row_by_cid(control.control_id)
         return row
 
-    def _refresh_button_row(self, control) -> None:
+    def _refresh_button_row_by_cid(self, cid: int) -> None:
         """Atualiza só a linha que mudou.
 
         Remontar a página inteira relê o dispositivo, e essa leitura falha
         quando o daemon está falando com o mouse ao mesmo tempo — a seção
         inteira desaparecia logo depois de atribuir uma ação.
         """
-        row = self._button_rows.get(control.control_id)
+        row = self._button_rows.get(cid)
         if row is None:
             return
-        vinculo = dict(self._store.load().default.binding_pairs()).get(control.control_id)
-        row.set_subtitle(self._describe_binding(vinculo))
-        row._clear_button.set_sensitive(vinculo is not None and not vinculo.is_empty)  # noqa: SLF001
+        vinculo, herdado = self._binding_for(cid)
+        descricao = self._describe_binding(vinculo)
+        row.set_subtitle(f"{descricao}  ·  herdado do Global" if herdado else descricao)
+
+        proprio = vinculo is not None and not vinculo.is_empty and not herdado
+        limpar = row._clear_button  # noqa: SLF001
+        limpar.set_sensitive(proprio)
+        limpar.set_tooltip_text(
+            "Voltar a seguir o Global"
+            if self._profile_index is not None
+            else "Voltar ao padrão do botão"
+        )
 
     def _pick_action(self, control) -> None:
-        vinculo = dict(self._store.load().default.binding_pairs()).get(control.control_id)
+        vinculo, _ = self._binding_for(control.control_id)
         atual = vinculo.press if vinculo and vinculo.press else None
 
         def escolhido(novo: Binding) -> None:
             chave = f"0x{control.control_id:04X}"
-            self._store.update(
-                lambda c: c.default.bindings.__setitem__(chave, novo.to_json())
-            )
-            self._refresh_button_row(control)
-            self._toast(f"{control.label}: {resolve(novo).label}")
+
+            def gravar(config) -> None:
+                self._edited_settings(config).bindings[chave] = novo.to_json()
+
+            self._store.update(gravar)
+            self._refresh_button_row_by_cid(control.control_id)
+            onde = self._profile_label(self._store.load())
+            self._toast(f"{control.label} em {onde}: {resolve(novo).label}")
 
         ActionPicker(escolhido, current=atual).present(self)
 
@@ -387,13 +556,14 @@ class LogituneWindow(Adw.ApplicationWindow):
         chave = f"0x{control.control_id:04X}"
 
         def remover(config) -> None:
-            config.default.bindings.pop(chave, None)
+            ajustes = self._edited_settings(config)
+            ajustes.bindings.pop(chave, None)
             # A chave antiga também precisa sair, senão o comando shell dela
             # continuaria valendo e o botão não voltaria ao padrão.
-            config.default.actions.pop(chave, None)
+            ajustes.actions.pop(chave, None)
 
         self._store.update(remover)
-        self._refresh_button_row(control)
+        self._refresh_button_row_by_cid(control.control_id)
         self._toast(f"{control.label} voltou ao padrão.")
 
     def _add_remap_group(self, page, device, controls, remappable) -> None:
