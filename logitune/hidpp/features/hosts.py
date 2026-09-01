@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from logitune.hidpp.constants import FeatureID
 from logitune.hidpp.device import NoResponse
 from logitune.hidpp.features.base import Feature
+from logitune.i18n import _
 
 _HI_GET_FEATURE_INFO = 0x00
 _HI_GET_HOST_INFO = 0x01
@@ -32,7 +33,7 @@ class HostStatus(enum.IntEnum):
 
     @property
     def label(self) -> str:
-        return "pareado" if self is HostStatus.PAIRED else "vazio"
+        return _("paired") if self is HostStatus.PAIRED else _("empty")
 
 
 #: Rótulos de tipo de barramento por valor bruto.
@@ -43,7 +44,7 @@ class HostStatus(enum.IntEnum):
 #: desconhecidos em vez de adivinhados.
 BUS_TYPE_LABELS: dict[int, str] = {
     0x04: "Bluetooth",
-    0x05: "receptor Bolt",
+    0x05: _("Bolt receiver"),
 }
 
 
@@ -60,7 +61,9 @@ class Host:
 
     @property
     def bus_label(self) -> str:
-        return BUS_TYPE_LABELS.get(self.bus_type, f"barramento 0x{self.bus_type:02X}")
+        return BUS_TYPE_LABELS.get(
+            self.bus_type, _("bus 0x{:02X}").format(self.bus_type)
+        )
 
     @property
     def channel(self) -> int:
@@ -70,8 +73,8 @@ class Host:
     @property
     def label(self) -> str:
         if self.status is not HostStatus.PAIRED:
-            return f"Canal {self.channel} (livre)"
-        return self.name or f"Canal {self.channel}"
+            return _("Channel {} (free)").format(self.channel)
+        return self.name or _("Channel {}").format(self.channel)
 
 
 class HostsInfo(Feature):

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from logitune.hidpp.constants import FeatureID
 from logitune.hidpp.features.base import Feature
+from logitune.i18n import _
 
 # --- 0x2111 SMART SHIFT ENHANCED -------------------------------------
 
@@ -29,9 +30,9 @@ class WheelMode(enum.IntEnum):
     @property
     def label(self) -> str:
         return {
-            WheelMode.UNCHANGED: "inalterado",
-            WheelMode.FREESPIN: "roda livre",
-            WheelMode.RATCHET: "ratchet",
+            WheelMode.UNCHANGED: _("unchanged"),
+            WheelMode.FREESPIN: _("freewheel"),
+            WheelMode.RATCHET: _("ratchet"),
         }[self]
 
 
