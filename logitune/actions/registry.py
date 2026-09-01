@@ -124,14 +124,14 @@ class ResolvedAction:
             return Availability(False, f"falta preencher: {nomes}")
         return self.spec.available()
 
-    def run(self, device=None) -> None:
+    def run(self, device=None, power=None) -> None:
         parametros = {
             p.name: p.default
             for p in self.spec.parameters
             if p.default is not None and p.name not in self.params
         }
         parametros.update(self.params)
-        self.spec.run(ActionContext(params=parametros, device=device))
+        self.spec.run(ActionContext(params=parametros, device=device, power=power))
 
 
 def resolve(binding: Binding, registry: Registry | None = None) -> ResolvedAction:

@@ -122,6 +122,9 @@ def play_haptic(context: ActionContext) -> None:
         raise ActionError(
             f"padrão háptico fora da faixa ({MIN_WAVEFORM}–{MAX_WAVEFORM}): {waveform}"
         )
+    if context.power is not None and not context.power.allows_haptics(context.device):
+        logger.debug("vibração pulada: economia de energia")
+        return
     try:
         haptic.play(waveform)
     except (HidppError, NoResponse, ValueError) as exc:

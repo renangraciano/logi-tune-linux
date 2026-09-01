@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, Callable, Mapping
 from logitune.i18n import _
 
 if TYPE_CHECKING:  # pragma: no cover - só para anotação
+    from logitune.actions.power import BatteryGate
     from logitune.device import LogitechDevice
 
 
@@ -119,6 +120,10 @@ class ActionContext:
     params: Mapping[str, Any] = field(default_factory=dict)
     #: O mouse, quando quem executa tem um aberto (o daemon sempre tem).
     device: LogitechDevice | None = None
+    #: Economia de energia, quando quem executa a aplica. Sem ela, nada é
+    #: barrado — é o que faz a CLI vibrar mesmo com a bateria baixa, já que
+    #: ali a vibração foi pedida explicitamente.
+    power: BatteryGate | None = None
 
     def get(self, name: str, default: Any = None) -> Any:
         return self.params.get(name, default)

@@ -804,6 +804,15 @@ class LogituneWindow(Adw.ApplicationWindow):
         combo.connect("notify::selected", self._on_wheel_changed)
         group.add(combo)
 
+        economia = Adw.SpinRow.new_with_range(0, 100, 5)
+        economia.set_title(_("Silence haptics below"))
+        economia.set_subtitle(
+            _("Battery percentage under which the motor stops buzzing. "
+              "Zero keeps it always on")
+        )
+        economia.set_value(config.haptics_below)
+        economia.connect("notify::value", self._on_haptics_below_changed)
+
         atraso = Adw.SpinRow.new_with_range(100, 5000, 50)
         atraso.set_title(_("Confirm after"))
         atraso.set_subtitle(
@@ -817,6 +826,30 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._switcher_delay_row = atraso
 
         page.add(group)
+
+        # A economia é do dispositivo, não da roda, mas o motor háptico não
+        # tem seção própria e criar uma para uma linha só seria pior.
+        if device.haptic is not None:
+            poupanca = Adw.PreferencesGroup(
+                title=_("Power saving"),
+                description=_(
+                    "The haptic motor is the hungriest part after the sensor, "
+                    "and buzzing on every gesture has a cost."
+                ),
+            )
+            poupanca.add(economia)
+            page.add(poupanca)
+
+    def _on_haptics_below_changed(self, row: Adw.SpinRow, _param) -> None:
+        if self._loading:
+            return
+        self._debounce(
+            "haptics_below",
+            _DEBOUNCE_MS,
+            lambda: self._store.update(
+                lambda c: c.power.__setitem__("haptics_below", int(row.get_value()))
+            ),
+        )
 
     def _on_wheel_changed(self, row: Adw.ComboRow, _param) -> None:
         if self._loading:

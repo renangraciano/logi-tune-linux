@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: logi-tune-linux 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/renangraciano/logi-tune-linux/"
 "issues\n"
-"POT-Creation-Date: 2026-09-01 16:28-0300\n"
+"POT-Creation-Date: 2026-09-01 16:38-0300\n"
 "PO-Revision-Date: 2026-09-01 13:00-0300\n"
 "Last-Translator: Renan Graciano de Souza\n"
 "Language-Team: Português do Brasil\n"
@@ -292,7 +292,7 @@ msgstr "Toca um padrão do motor háptico"
 msgid "Pattern (0–14)"
 msgstr "Padrão (0–14)"
 
-#: logitune/actions/catalog.py:229 logitune/actions/spec.py:63
+#: logitune/actions/catalog.py:229 logitune/actions/spec.py:64
 msgid "Open an application"
 msgstr "Abrir um aplicativo"
 
@@ -364,35 +364,35 @@ msgstr "arrastar para a esquerda"
 msgid "drag right"
 msgstr "arrastar para a direita"
 
-#: logitune/actions/spec.py:56
+#: logitune/actions/spec.py:57
 msgid "System"
 msgstr "Sistema"
 
-#: logitune/actions/spec.py:57
+#: logitune/actions/spec.py:58
 msgid "Windows and workspaces"
 msgstr "Janelas e áreas de trabalho"
 
-#: logitune/actions/spec.py:58
+#: logitune/actions/spec.py:59
 msgid "Media"
 msgstr "Mídia"
 
-#: logitune/actions/spec.py:59
+#: logitune/actions/spec.py:60
 msgid "Meeting controls"
 msgstr "Controles de reunião"
 
-#: logitune/actions/spec.py:60
+#: logitune/actions/spec.py:61
 msgid "Editing"
 msgstr "Edição"
 
-#: logitune/actions/spec.py:61
+#: logitune/actions/spec.py:62
 msgid "Browser"
 msgstr "Navegador"
 
-#: logitune/actions/spec.py:62
+#: logitune/actions/spec.py:63
 msgid "Mouse"
 msgstr "Mouse"
 
-#: logitune/actions/spec.py:64
+#: logitune/actions/spec.py:65
 msgid "Custom"
 msgstr "Personalizado"
 
@@ -624,6 +624,7 @@ msgstr "Trocando para o canal {}… o mouse vai se desconectar daqui."
 msgid "The catalogue needs an interactive terminal to take descriptions."
 msgstr "O catálogo precisa de um terminal interativo para receber as descrições."
 "O catálogo precisa de um terminal interativo para receber as descrições.O "
+"catálogo precisa de um terminal interativo para receber as descrições.O "
 "catálogo precisa de um terminal interativo para receber as descrições.O "
 "catálogo precisa de um terminal interativo para receber as descrições."
 
@@ -961,7 +962,7 @@ msgstr "inverte a roda principal"
 msgid "high-resolution scrolling"
 msgstr "rolagem de alta resolução"
 
-#: logitune/cli.py:1044 logitune/ui/window.py:952
+#: logitune/cli.py:1044 logitune/ui/window.py:985
 msgid "invert the thumb wheel"
 msgstr "inverter a roda do polegar"
 
@@ -1568,64 +1569,84 @@ msgid "What rolling does"
 msgstr "O que girar faz"
 
 #: logitune/ui/window.py:808
+msgid "Silence haptics below"
+msgstr "Silenciar vibração abaixo de"
+
+#: logitune/ui/window.py:810
+msgid ""
+"Battery percentage under which the motor stops buzzing. Zero keeps it always "
+"on"
+msgstr ""
+
+#: logitune/ui/window.py:817
 msgid "Confirm after"
 msgstr "Confirmar após"
 
-#: logitune/ui/window.py:810
+#: logitune/ui/window.py:819
 msgid ""
 "How long the switcher waits, once the wheel stops, before bringing the "
 "chosen window forward"
 msgstr ""
 
-#: logitune/ui/window.py:838
+#: logitune/ui/window.py:834
+msgid "Power saving"
+msgstr "Economia de energia"
+
+#: logitune/ui/window.py:836
+msgid ""
+"The haptic motor is the hungriest part after the sensor, and buzzing on "
+"every gesture has a cost."
+msgstr ""
+
+#: logitune/ui/window.py:871
 msgid "change the thumb wheel"
 msgstr "mudar a roda do polegar"
 
-#: logitune/ui/window.py:862
+#: logitune/ui/window.py:895
 msgid "Computers"
 msgstr "Computadores"
 
-#: logitune/ui/window.py:863
+#: logitune/ui/window.py:896
 msgid "The mouse stores three pairings and switches between them."
 msgstr "O mouse guarda três pareamentos e alterna entre eles."
 
-#: logitune/ui/window.py:869
+#: logitune/ui/window.py:902
 msgid "connected"
 msgstr "conectado"
 
-#: logitune/ui/window.py:874
+#: logitune/ui/window.py:907
 msgid "Switch"
 msgstr "Trocar"
 
-#: logitune/ui/window.py:891
+#: logitune/ui/window.py:924
 msgid "Could not {}."
 msgstr "Não foi possível {}."
 
-#: logitune/ui/window.py:914
+#: logitune/ui/window.py:947
 msgid "apply the DPI"
 msgstr "aplicar o DPI"
 
-#: logitune/ui/window.py:925
+#: logitune/ui/window.py:958
 msgid "adjust SmartShift"
 msgstr "ajustar o SmartShift"
 
-#: logitune/ui/window.py:932
+#: logitune/ui/window.py:965
 msgid "change the wheel mode"
 msgstr "mudar o modo da roda"
 
-#: logitune/ui/window.py:939
+#: logitune/ui/window.py:972
 msgid "change the scroll resolution"
 msgstr "mudar a resolução da rolagem"
 
-#: logitune/ui/window.py:945
+#: logitune/ui/window.py:978
 msgid "invert the wheel"
 msgstr "inverter a roda"
 
-#: logitune/ui/window.py:972
+#: logitune/ui/window.py:1005
 msgid "Switching computer… the mouse will disconnect from here."
 msgstr "Trocando de computador… o mouse vai se desconectar daqui."
 
-#: logitune/ui/window.py:975
+#: logitune/ui/window.py:1008
 msgid "switch computer"
 msgstr "trocar de computador"
 
