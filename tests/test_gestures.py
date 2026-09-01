@@ -370,6 +370,24 @@ class TestInterruptorDeGestos:
 
 
 class TestDaemonComGestosDesligados:
+    @pytest.fixture
+    def registro(self, monkeypatch):
+        """Uma ação sem sondagem.
+
+        Usar uma do catálogo faria o teste depender do ambiente: system.overview
+        precisa do /dev/uinput, que não existe no CI, e aí o botão sumiria por
+        indisponibilidade em vez de pelo interruptor — o teste passaria pelo
+        motivo errado.
+        """
+        from logitune.actions import Registry
+        from logitune.actions import registry as registry_module
+        from logitune.actions.spec import ActionSpec, Category
+
+        registro = Registry()
+        registro.register(ActionSpec("t.ok", "Boa", Category.SISTEMA, run=lambda c: None))
+        monkeypatch.setattr(registry_module, "_default", registro)
+        return registro
+
     def _daemon(self, config):
         from logitune.daemon.service import Daemon
 
@@ -380,7 +398,7 @@ class TestDaemonComGestosDesligados:
 
         return Daemon(config, DispositivoFalso())
 
-    def test_botao_de_gestos_fica_de_fabrica(self):
+    def test_botao_de_gestos_fica_de_fabrica(self, registro):
         """Desligado quer dizer desligado: nem o toque dispara.
 
         Deixar o toque valendo faria o botão continuar fazendo algo que o
@@ -388,19 +406,27 @@ class TestDaemonComGestosDesligados:
         """
         from logitune.config import Config, Settings
 
-        config = Config(gestures={"enabled": False})
-        daemon = self._daemon(config)
-        settings = Settings(bindings={"0x1A0": {"tap": "system.overview"}})
+        daemon = self._daemon(Config(gestures={"enabled": False}))
+        settings = Settings(bindings={"0x1A0": {"tap": "t.ok"}})
         cliques, gestos = daemon._resolve_bindings(settings)
         assert cliques == {}
         assert gestos == {}
 
-    def test_botao_de_clique_nao_e_afetado(self):
+    def test_ligado_o_mesmo_botao_vira_gesto(self, registro):
+        """O contraste que prova que o teste acima mede o interruptor."""
+        from logitune.config import Config, Settings
+
+        daemon = self._daemon(Config(gestures={"enabled": True}))
+        settings = Settings(bindings={"0x1A0": {"tap": "t.ok"}})
+        _, gestos = daemon._resolve_bindings(settings)
+        assert set(gestos[0x1A0]) == {Gesture.TAP}
+
+    def test_botao_de_clique_nao_e_afetado(self, registro):
         """Desligar gestos não pode desligar um botão que nunca teve gesto."""
         from logitune.config import Config, Settings
 
         daemon = self._daemon(Config(gestures={"enabled": False}))
-        settings = Settings(bindings={"0x53": "system.overview"})
+        settings = Settings(bindings={"0x53": "t.ok"})
         cliques, _ = daemon._resolve_bindings(settings)
         assert list(cliques) == [0x53]
 
