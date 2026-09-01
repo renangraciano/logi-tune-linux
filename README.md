@@ -318,14 +318,43 @@ If you decode something, please [open an issue](https://github.com/renangraciano
 
 ## Roadmap
 
-- [ ] Profile and button-mapping UI, so the config file becomes optional
-- [ ] Actions Ring radial menu via a GNOME Shell extension
-- [ ] Per-application profiles on Wayland (same extension solves both)
-- [ ] Decode `0x19C0`
-- [ ] English interface (the GUI is currently Portuguese only)
-- [ ] Flatpak and `.deb` packages
-- [ ] Support beyond the MX Master 4 — the stack is generic HID++ 2.0, it just
-      needs testing
+Tracked as [issues](https://github.com/renangraciano/logi-tune-linux/issues),
+roughly in the order they matter.
+
+**Before this can call itself 1.0**
+
+- [#8](https://github.com/renangraciano/logi-tune-linux/issues/8) Profile and
+  button-mapping UI, so the config file becomes optional
+- [#9](https://github.com/renangraciano/logi-tune-linux/issues/9) Translate the
+  interface — the window is Portuguese only
+
+**Visible gaps against Logi Options+**
+
+- [#10](https://github.com/renangraciano/logi-tune-linux/issues/10) Thumb wheel
+  as an application switcher
+- [#11](https://github.com/renangraciano/logi-tune-linux/issues/11) System
+  settings: left-handed buttons, pointer acceleration
+- [#12](https://github.com/renangraciano/logi-tune-linux/issues/12) Turn
+  haptics off on low battery
+- [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) `.deb` and
+  Flatpak packages
+
+**Risky, or research with an uncertain outcome**
+
+- [#14](https://github.com/renangraciano/logi-tune-linux/issues/14) Extended
+  scrolling — the riskiest item here; diverting the wheel can leave a mouse
+  that does not scroll
+- [#15](https://github.com/renangraciano/logi-tune-linux/issues/15) Actions Ring
+  radial menu via a GNOME Shell extension, which also solves per-application
+  profiles on Wayland
+- [#16](https://github.com/renangraciano/logi-tune-linux/issues/16) Decode
+  haptic intensity and the unknown `0x19C0` — it may not be exposed at all
+- [#17](https://github.com/renangraciano/logi-tune-linux/issues/17) Test on mice
+  other than the MX Master 4 — the stack is generic HID++ 2.0, it just needs
+  hardware
+
+Issues marked *good first issue* are self-contained and do not need the
+hardware to get started.
 
 ## Known limitations
 
