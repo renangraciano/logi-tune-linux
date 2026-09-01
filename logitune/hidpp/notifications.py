@@ -120,12 +120,7 @@ class NotificationListener:
         # Software ID zero: ninguém pediu isso, o dispositivo mandou sozinho.
         return report[3] & 0x0F == 0
 
-    def poll(self, timeout: float = 1.0) -> Notification | None:
-        """Espera a próxima notificação, ou ``None`` se nada chegar."""
-        report = self.device.transport.read(timeout)
-        if report is None or not self._is_notification(report):
-            return None
-
+    def _build(self, report: bytes) -> Notification:
         self._resolve_indexes()
         feature_index = report[2]
         return Notification(
@@ -135,6 +130,26 @@ class NotificationListener:
             data=report[4:],
             feature_id=self._index_to_feature.get(feature_index),
         )
+
+    def poll(self, timeout: float = 1.0) -> Notification | None:
+        """Espera a próxima notificação, ou ``None`` se nada chegar.
+
+        A fila do dispositivo vem primeiro: ela guarda o que chegou enquanto
+        uma requisição estava em curso. Sem consumi-la aqui, um comando ao
+        mouse — vibrar para confirmar um gesto, por exemplo — engoliria os
+        eventos que chegaram junto.
+        """
+        while True:
+            report = self.device.take_stashed()
+            if report is None:
+                break
+            if self._is_notification(report):
+                return self._build(report)
+
+        report = self.device.transport.read(timeout)
+        if report is None or not self._is_notification(report):
+            return None
+        return self._build(report)
 
     def as_raw_movement(self, notification: Notification) -> RawMovement | None:
         """Traduz uma notificação de movimento bruto.

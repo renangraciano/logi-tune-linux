@@ -67,6 +67,14 @@ class FakeTransport:
 
     # -- simulação -----------------------------------------------------
 
+    def queue(self, report: bytes) -> None:
+        """Enfileira um relatório que o dispositivo mandou por conta própria.
+
+        Serve para simular uma notificação chegando no meio de uma conversa,
+        que é quando ela corre risco de ser descartada.
+        """
+        self._pending.append(report)
+
     def _reply(self, request: bytes, payload: bytes) -> bytes:
         report = bytearray(REPORT_SIZE[ReportType.LONG])
         report[0] = int(ReportType.LONG)
