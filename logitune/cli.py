@@ -83,10 +83,16 @@ def cmd_status(device: LogitechDevice, _args: argparse.Namespace) -> int:
 
     if device.thumbwheel:
         state = device.thumbwheel.get_state()
-        print(
-            f"  Roda polegar {'invertida' if state.inverted else 'normal'}"
-            f"{', desviada' if state.diverted else ''}"
-        )
+        linha = f"  Roda polegar {'invertida' if state.inverted else 'normal'}"
+        if state.diverted:
+            # Desviada, a roda para de rolar: ela manda notificações HID++ em
+            # vez de eventos de rolagem, e hoje ninguém as consome.
+            linha += _paint(
+                "  ⚠ desviada — não rola; conserte com "
+                "'logitune scroll --no-thumb-divert'",
+                _WARN,
+            )
+        print(linha)
 
     if device.hosts:
         hosts = device.hosts.list_hosts()
@@ -166,6 +172,15 @@ def cmd_scroll(device: LogitechDevice, args: argparse.Namespace) -> int:
         state = device.thumbwheel.set_state(inverted=args.invert_thumb)
         print(f"Roda do polegar: {'invertida' if state.inverted else 'normal'}")
         changed = True
+    if args.thumb_divert is not None:
+        if device.thumbwheel is None:
+            print("Este dispositivo não tem roda do polegar.", file=sys.stderr)
+            return 1
+        state = device.thumbwheel.set_state(diverted=args.thumb_divert)
+        print(
+            f"Roda do polegar: {'desviada (não rola)' if state.diverted else 'rolagem normal'}"
+        )
+        changed = True
 
     if not changed:
         state = device.wheel.get_state()
@@ -175,7 +190,10 @@ def cmd_scroll(device: LogitechDevice, args: argparse.Namespace) -> int:
         )
         if device.thumbwheel:
             thumb = device.thumbwheel.get_state()
-            print(f"roda do polegar: {'invertida' if thumb.inverted else 'normal'}")
+            print(
+                f"roda do polegar: {'invertida' if thumb.inverted else 'normal'}"
+                f"{', desviada (não rola)' if thumb.diverted else ''}"
+            )
     return 0
 
 
@@ -447,6 +465,37 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
         itens.append((True, "python-xlib", "disponível (perfis por aplicação)"))
     except ImportError:
         itens.append((False, "python-xlib", "ausente — sudo apt install python3-xlib"))
+
+    # -- estado do dispositivo ---------------------------------------
+    # A roda do polegar desviada é o legado clássico de quem usou o Solaar:
+    # ele liga o desvio (thumb-scroll-mode) e, desinstalado sem restaurar,
+    # deixa o flag gravado no firmware. A roda simplesmente para de rolar, e
+    # nada na tela explica por quê — então explicamos aqui.
+    try:
+        from logitune.device import close_devices, discover_devices
+
+        dispositivos = discover_devices()
+    except (OSError, TransportError):
+        dispositivos = []
+    if dispositivos:
+        try:
+            roda = dispositivos[0].thumbwheel
+            if roda is not None:
+                desviada = roda.get_state().diverted
+                itens.append(
+                    (
+                        not desviada,
+                        "Roda do polegar",
+                        "rolagem normal"
+                        if not desviada
+                        else "desviada — não rola; "
+                        "corrija com 'logitune scroll --no-thumb-divert'",
+                    )
+                )
+        except (HidppError, NoResponse, OSError):
+            pass
+        finally:
+            close_devices(dispositivos)
 
     # -- daemon ------------------------------------------------------
     systemctl = shutil.which("systemctl")
@@ -749,6 +798,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hires", action=argparse.BooleanOptionalAction, help="rolagem de alta resolução")
     p.add_argument(
         "--invert-thumb", action=argparse.BooleanOptionalAction, help="inverte a roda do polegar"
+    )
+    p.add_argument(
+        "--thumb-divert",
+        action=argparse.BooleanOptionalAction,
+        help="desvia a roda do polegar para o software; --no-thumb-divert devolve a rolagem",
     )
     p.set_defaults(func=cmd_scroll)
 
