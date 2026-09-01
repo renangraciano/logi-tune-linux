@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
-import subprocess
 import threading
 
 import gi
@@ -15,7 +13,9 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
-from logitune import config as config_module  # noqa: E402
+from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
+from logitune.ui.action_picker import ActionPicker  # noqa: E402
+from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
 from logitune.hidpp.features.scroll import WheelMode  # noqa: E402
@@ -43,6 +43,9 @@ class LogituneWindow(Adw.ApplicationWindow):
         #: lido do dispositivo — senão cada carga viraria uma escrita.
         self._loading = False
         self._debounce_ids: dict[str, int] = {}
+        self._store = ConfigStore()
+        #: Linhas de botão por CID, para atualizar sem remontar a página.
+        self._button_rows: dict[int, Adw.ActionRow] = {}
 
         self._toasts = Adw.ToastOverlay()
         header = Adw.HeaderBar()
@@ -285,14 +288,131 @@ class LogituneWindow(Adw.ApplicationWindow):
         if not remappable:
             return
 
+        config = self._store.load()
+        vinculos = dict(config.default.binding_pairs())
+
         group = Adw.PreferencesGroup(
             title="Botões",
             description="Escolha o que cada botão programável deve fazer.",
         )
 
+        self._button_rows = {}
+        divertable = [c for c in controls if c.is_divertable]
+        for control in divertable:
+            group.add(self._make_button_row(control, vinculos.get(control.control_id)))
+
+        if not self._store.daemon_running():
+            # Um vínculo sem daemon fica gravado e não acontece. Melhor dizer
+            # isso agora do que deixar a pessoa achar que o botão quebrou.
+            group.add(
+                Adw.ActionRow(
+                    title="O serviço não está ativo",
+                    subtitle=(
+                        "As ações de botão são aplicadas pelo daemon. "
+                        "Ligue com: systemctl --user enable --now logitune-daemon"
+                    ),
+                )
+            )
+
+        page.add(group)
+        self._add_remap_group(page, device, controls, remappable)
+
+    def _describe_binding(self, binding: ButtonBinding | None) -> str:
+        """Como a linha do botão descreve o que ele faz hoje."""
+        if binding is None or binding.is_empty:
+            return "Padrão do botão"
+        if binding.gestures:
+            nomes = ", ".join(g.label for g in binding.gestures)
+            return f"{len(binding.gestures)} gestos: {nomes}"
+        try:
+            return resolve(binding.press).label
+        except UnknownAction:
+            # A configuração pode citar uma ação que não existe mais.
+            return f"Ação desconhecida: {binding.press.action}"
+
+    def _make_button_row(self, control, binding: ButtonBinding | None) -> Adw.ActionRow:
+        row = Adw.ActionRow(
+            title=control.label,
+            subtitle=self._describe_binding(binding),
+            activatable=True,
+        )
+
+        limpar = Gtk.Button(
+            icon_name="edit-clear-symbolic",
+            valign=Gtk.Align.CENTER,
+            tooltip_text="Voltar ao padrão do botão",
+        )
+        limpar.add_css_class("flat")
+        limpar.set_sensitive(binding is not None and not binding.is_empty)
+        limpar.connect("clicked", lambda _b, c=control: self._clear_binding(c))
+        row.add_suffix(limpar)
+        row.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
+        # O botão de limpar acompanha a linha, para ligar e desligar sem
+        # remontar nada.
+        row._clear_button = limpar  # noqa: SLF001
+
+        row.connect("activated", lambda _r, c=control: self._pick_action(c))
+        self._button_rows[control.control_id] = row
+        return row
+
+    def _refresh_button_row(self, control) -> None:
+        """Atualiza só a linha que mudou.
+
+        Remontar a página inteira relê o dispositivo, e essa leitura falha
+        quando o daemon está falando com o mouse ao mesmo tempo — a seção
+        inteira desaparecia logo depois de atribuir uma ação.
+        """
+        row = self._button_rows.get(control.control_id)
+        if row is None:
+            return
+        vinculo = dict(self._store.load().default.binding_pairs()).get(control.control_id)
+        row.set_subtitle(self._describe_binding(vinculo))
+        row._clear_button.set_sensitive(vinculo is not None and not vinculo.is_empty)  # noqa: SLF001
+
+    def _pick_action(self, control) -> None:
+        vinculo = dict(self._store.load().default.binding_pairs()).get(control.control_id)
+        atual = vinculo.press if vinculo and vinculo.press else None
+
+        def escolhido(novo: Binding) -> None:
+            chave = f"0x{control.control_id:04X}"
+            self._store.update(
+                lambda c: c.default.bindings.__setitem__(chave, novo.to_json())
+            )
+            self._refresh_button_row(control)
+            self._toast(f"{control.label}: {resolve(novo).label}")
+
+        ActionPicker(escolhido, current=atual).present(self)
+
+    def _clear_binding(self, control) -> None:
+        chave = f"0x{control.control_id:04X}"
+
+        def remover(config) -> None:
+            config.default.bindings.pop(chave, None)
+            # A chave antiga também precisa sair, senão o comando shell dela
+            # continuaria valendo e o botão não voltaria ao padrão.
+            config.default.actions.pop(chave, None)
+
+        self._store.update(remover)
+        self._refresh_button_row(control)
+        self._toast(f"{control.label} voltou ao padrão.")
+
+    def _add_remap_group(self, page, device, controls, remappable) -> None:
+        """Remapeamento no firmware, que é outra coisa e vale separar.
+
+        Ao contrário de uma ação, isto é gravado no mouse e vale mesmo sem o
+        daemon rodando — mas só sabe trocar um botão por outro.
+        """
+        group = Adw.PreferencesGroup(
+            title="Trocar botões entre si",
+            description=(
+                "Gravado no próprio mouse: funciona sem o serviço, "
+                "mas só troca um botão pelo comportamento de outro."
+            ),
+        )
+        alguma = False
         for control in remappable:
             alvos = [c for c in controls if control.can_remap_to(c)]
-            if not alvos:
+            if len(alvos) < 2:
                 continue
 
             row = Adw.ComboRow(title=control.label)
@@ -305,18 +425,16 @@ class LogituneWindow(Adw.ApplicationWindow):
 
             reporting = device.controls.get_reporting(control.control_id)
             atual = reporting.remapped_to or control.control_id
-            posicao = next(
-                (i for i, a in enumerate(alvos) if a.control_id == atual),
-                0,
-            )
-            row.set_selected(posicao)
+            row.set_selected(next((i for i, a in enumerate(alvos) if a.control_id == atual), 0))
             # Guardamos a tabela de alvos no próprio widget para o handler.
             row._control = control  # noqa: SLF001
             row._targets = alvos  # noqa: SLF001
             row.connect("notify::selected", self._on_button_remapped)
             group.add(row)
+            alguma = True
 
-        page.add(group)
+        if alguma:
+            page.add(group)
 
     def _add_gestures_group(
         self, page: Adw.PreferencesPage, device: LogitechDevice
@@ -327,7 +445,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         decisão do daemon, e mora no ``config.json``. É a primeira coisa que a
         interface grava em arquivo em vez de escrever no dispositivo.
         """
-        config = config_module.load()
+        config = self._store.load()
 
         group = Adw.PreferencesGroup(
             title="Gestos",
@@ -369,33 +487,11 @@ class LogituneWindow(Adw.ApplicationWindow):
         ligado = row.get_active()
 
         def aplicar() -> None:
-            config = config_module.load()
-            config.gestures = {**config.gestures, "enabled": ligado}
-            config.save()
-            self._reload_daemon()
+            self._store.update(
+                lambda c: c.gestures.__setitem__("enabled", ligado)
+            )
 
         self._guarded(aplicar, f"gestos {'ligados' if ligado else 'desligados'}")
-
-    def _reload_daemon(self) -> None:
-        """Pede ao daemon que releia a configuração.
-
-        Sem isto o interruptor só valeria no próximo reinício do serviço, e um
-        controle que não faz nada na hora é pior que controle nenhum. Se o
-        daemon não estiver rodando não há o que avisar: a configuração já foi
-        gravada e vale quando ele subir.
-        """
-        systemctl = shutil.which("systemctl")
-        if systemctl is None:
-            return
-        try:
-            subprocess.run(
-                [systemctl, "--user", "reload", "logitune-daemon"],
-                capture_output=True,
-                timeout=5,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            logger.debug("não consegui recarregar o daemon: %s", exc)
 
     def _add_hosts_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
         if device.hosts is None or device.change_host is None:
