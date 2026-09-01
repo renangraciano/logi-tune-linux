@@ -543,14 +543,31 @@ def cmd_watch(device: LogitechDevice, args: argparse.Namespace) -> int:
     listener = NotificationListener(device.hidpp)
 
     try:
-        for cid in alvos:
-            if not controls[cid].is_divertable:
-                continue
-            device.controls.set_reporting(cid, diverted=True)
-            desviados.append(cid)
+        if args.passive:
+            # Não mexe no desvio: serve para observar o que o daemon já
+            # configurou, sem brigar com ele pelo estado do dispositivo.
+            ja_desviados = [
+                cid for cid in alvos if device.controls.get_reporting(cid).diverted
+            ]
+            nomes = ", ".join(controls[c].label for c in ja_desviados) or "nenhum"
+            print(_paint(f"Escutando (modo passivo). Já desviados: {nomes}", _BOLD))
+            if not ja_desviados:
+                print(
+                    _paint(
+                        "Nenhum botão está desviado, então nada será reportado. "
+                        "Rode sem --passive para desviar temporariamente.",
+                        _WARN,
+                    )
+                )
+        else:
+            for cid in alvos:
+                if not controls[cid].is_divertable:
+                    continue
+                device.controls.set_reporting(cid, diverted=True)
+                desviados.append(cid)
 
-        nomes = ", ".join(controls[c].label for c in desviados) or "nenhum"
-        print(_paint(f"Escutando eventos. Botões desviados: {nomes}", _BOLD))
+            nomes = ", ".join(controls[c].label for c in desviados) or "nenhum"
+            print(_paint(f"Escutando eventos. Botões desviados: {nomes}", _BOLD))
         print(_paint("Pressione os botões no mouse. Ctrl+C encerra.", _DIM))
 
         limite = time.monotonic() + args.seconds if args.seconds else None
@@ -675,6 +692,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--seconds", type=float, default=0, help="encerra sozinho após N segundos"
+    )
+    p.add_argument(
+        "--passive",
+        action="store_true",
+        help="só escuta, sem desviar nem restaurar (convive com o daemon)",
     )
     p.set_defaults(func=cmd_watch)
 
