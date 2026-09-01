@@ -27,6 +27,21 @@ class Window:
     title: str
 
     def __str__(self) -> str:
+        """Só a classe da janela, nunca o título.
+
+        O título é o que a pessoa está lendo, escrevendo ou pesquisando neste
+        instante — e o daemon registra a janela em foco a cada troca. Um log
+        que guarda títulos vira um histórico de navegação no journal, que é
+        exatamente o que costuma ser anexado a um relato de bug.
+
+        O título continua disponível para as regras de perfil e para o modo de
+        depuração, onde quem ligou sabe o que está vendo.
+        """
+        return self.wm_class or "?"
+
+    @property
+    def detailed(self) -> str:
+        """Classe e título, para depuração explícita."""
         return f"{self.wm_class or '?'} — {self.title or '(sem título)'}"
 
 
