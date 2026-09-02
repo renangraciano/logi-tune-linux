@@ -21,13 +21,84 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk  # noqa: E402
+from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from logitune.actions import Binding, default_registry  # noqa: E402
+from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.actions.spec import ActionSpec  # noqa: E402
 from logitune.i18n import _  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+class _EscolhaDeAplicativo(Adw.ActionRow):
+    """Escolhe um aplicativo da lista instalada em vez de exigir digitação.
+
+    O campo era uma caixa de texto e o que se escreve naturalmente é o nome do
+    comando — ``gnome-calculator`` — que não é o id ``.desktop``. Escolher da
+    lista grava o id certo, e mostra nome e ícone, que é como a pessoa
+    reconhece o aplicativo.
+    """
+
+    __gtype_name__ = "LogituneEscolhaDeAplicativo"
+
+    def __init__(self, titulo: str, pai) -> None:
+        super().__init__(title=titulo, activatable=True)
+        self._valor = ""
+        self._pai = pai
+        self._icone = Gtk.Image(pixel_size=24)
+        self.add_prefix(self._icone)
+        self.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
+        self.set_subtitle(_("Pick from the installed applications"))
+        self.connect("activated", lambda _r: self._abrir())
+
+    def _abrir(self) -> None:
+        def escolhido(app) -> None:
+            self.remove_css_class("error")
+            self._valor = app.desktop_id or app.name
+            self.set_subtitle(GLib.markup_escape_text(app.name))
+            self._mostrar_icone(app.icon)
+
+        AppPicker(escolhido).present(self._pai)
+
+    def _mostrar_icone(self, nome: str) -> None:
+        if not nome:
+            self._icone.clear()
+            return
+        try:
+            from gi.repository import Gio
+
+            self._icone.set_from_gicon(Gio.Icon.new_for_string(nome))
+        except Exception:  # noqa: BLE001 - ícone quebrado não impede a escolha
+            self._icone.clear()
+
+    # A mesma interface de uma Adw.EntryRow, para o diálogo tratar os campos
+    # todos do mesmo jeito.
+
+    def get_text(self) -> str:
+        return self._valor
+
+    def set_text(self, valor: str) -> None:
+        self._valor = valor or ""
+        if not self._valor:
+            return
+        # Um valor que já estava gravado pode ser id, executável ou nome.
+        try:
+            from logitune.actions.backends.launch import find_app
+
+            info = find_app(self._valor)
+        except Exception:  # noqa: BLE001 - sem Gio, mostra o texto cru
+            info = None
+        if info is None:
+            self.set_subtitle(
+                _("{} — not installed any more").format(
+                    GLib.markup_escape_text(self._valor)
+                )
+            )
+            return
+        self.set_subtitle(GLib.markup_escape_text(info.get_display_name() or self._valor))
+        icone = info.get_icon()
+        self._mostrar_icone(icone.to_string() if icone else "")
 
 
 class ActionPicker(Adw.Dialog):
@@ -145,10 +216,13 @@ class ActionPicker(Adw.Dialog):
             description=spec.description,
             margin_top=12, margin_bottom=12, margin_start=12, margin_end=12,
         )
-        campos: dict[str, Adw.EntryRow] = {}
+        campos: dict[str, Adw.PreferencesRow] = {}
         anterior = self._current.params if self._current and self._current.action == spec.id else {}
         for parametro in spec.parameters:
-            row = Adw.EntryRow(title=parametro.label)
+            if parametro.kind == "app":
+                row = _EscolhaDeAplicativo(parametro.label, dialogo)
+            else:
+                row = Adw.EntryRow(title=parametro.label)
             valor = anterior.get(parametro.name, parametro.default)
             if valor is not None:
                 row.set_text(str(valor))
