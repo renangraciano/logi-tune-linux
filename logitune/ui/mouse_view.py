@@ -20,7 +20,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, Gtk  # noqa: E402
 
 from logitune.i18n import _  # noqa: E402
 from logitune.ui.mouse_model import MODEL_REGISTRY  # noqa: E402
@@ -28,6 +28,12 @@ from logitune.ui.mouse_model import MODEL_REGISTRY  # noqa: E402
 logger = logging.getLogger(__name__)
 
 _ASSETS = Path(__file__).resolve().parent / "assets"
+#: Diâmetro do marcador. Acompanha o ``min-width`` de ``.hotspot-button``
+#: em ``hotspot.css``; serve de reserva quando o widget ainda não mediu.
+_HOTSPOT_PX = 28
+#: Tamanho do desenho na tela, na proporção do viewBox (420×620).
+_DRAWING_H = 340
+_DRAWING_W = round(_DRAWING_H * 420 / 620)
 _CSS_LOADED = False
 
 
@@ -48,6 +54,27 @@ def _ensure_css() -> None:
         Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
     )
     _CSS_LOADED = True
+
+
+class _BoundedPicture(Gtk.Picture):
+    """Um ``Gtk.Picture`` que não cresce além do tamanho pedido.
+
+    O tamanho natural de um ``Gtk.Picture`` é o tamanho intrínseco da imagem,
+    e ele reivindica esse espaço inteiro quando a janela permite. Com um
+    desenho de 420×620 isso transforma a seção de botões num pôster do mouse
+    e empurra o resto da página para fora da tela. Limitar o natural mantém o
+    desenho vetorial — só não deixa ele mandar no layout.
+    """
+
+    __gtype_name__ = "LogituneBoundedPicture"
+
+    def do_measure(self, orientation, for_size):
+        minimo, natural, _min_base, _nat_base = Gtk.Picture.do_measure(
+            self, orientation, for_size
+        )
+        teto = _DRAWING_W if orientation == Gtk.Orientation.HORIZONTAL else _DRAWING_H
+        # Uma imagem não tem linha de base; devolver uma faz o GTK reclamar.
+        return min(minimo, teto), min(natural, teto), -1, -1
 
 
 class MouseHotspotView(Gtk.Box):
@@ -129,18 +156,29 @@ class MouseHotspotView(Gtk.Box):
 
         # -- Montagem do widget --------------------------------------------
 
-        self._overlay = Gtk.Overlay()
+        # O desenho tem tamanho fixo. Deixá-lo crescer com a janela fazia uma
+        # página de preferências virar um pôster do mouse: numa janela larga
+        # ele passava de 600px de altura e empurrava todo o resto para fora da
+        # tela.
+        self._overlay = Gtk.Overlay(
+            halign=Gtk.Align.CENTER,
+            valign=Gtk.Align.CENTER,
+            hexpand=False,
+            vexpand=False,
+        )
 
-        self._picture = Gtk.Picture.new_for_filename(str(image_path))
+        self._picture = _BoundedPicture()
+        self._picture.set_filename(str(image_path))
         self._picture.set_can_shrink(True)
         self._picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-        self._picture.set_size_request(-1, 350)
+        self._picture.set_size_request(_DRAWING_W, _DRAWING_H)
         self._overlay.set_child(self._picture)
 
-        # O Gtk.Fixed posiciona os hotspots sobre a imagem. As coordenadas
-        # são recalculadas sempre que o widget muda de tamanho.
-        self._fixed = Gtk.Fixed()
-        self._overlay.add_overlay(self._fixed)
+        # Quem posiciona os marcadores é o próprio Gtk.Overlay, que repergunta
+        # a posição de cada filho a cada alocação. Um Gtk.Fixed os colocaria
+        # uma vez só, e eles ficariam para trás quando a janela mudasse de
+        # tamanho — a imagem se reajusta, os marcadores não.
+        self._overlay.connect("get-child-position", self._place_hotspot)
 
         self.append(self._overlay)
 
@@ -154,32 +192,35 @@ class MouseHotspotView(Gtk.Box):
                 continue
             self._create_hotspot(cid, x_pct, y_pct)
 
-        # Reposiciona os hotspots quando o widget redimensiona.
-        self._picture.connect("notify::paintable", lambda *_: self._reposition())
-
-        # Atraso para posicionar os hotspots após o layout inicial.
-        GLib.idle_add(self._reposition)
+        # Trocar a imagem muda a proporção, e com ela toda a geometria.
+        self._picture.connect(
+            "notify::paintable", lambda *_: self._overlay.queue_allocate()
+        )
 
     # -- Criação de hotspots -----------------------------------------------
 
     def _create_hotspot(self, cid: int, x_pct: float, y_pct: float) -> None:
         """Cria um marcador ⊕ para o botão de Control ID ``cid``."""
-        control = self._controls[cid]
-
         btn = Gtk.Button()
         btn.set_child(Gtk.Image.new_from_icon_name("list-add-symbolic"))
         btn.add_css_class("hotspot-button")
         btn.add_css_class("circular")
         btn.add_css_class("pulse")
-        btn.set_tooltip_text(control.label)
+        # Sem isto, um posicionamento recusado faria o marcador ocupar o
+        # overlay inteiro em vez de ficar do seu tamanho.
+        btn.set_halign(Gtk.Align.START)
+        btn.set_valign(Gtk.Align.START)
         btn.connect("clicked", self._on_hotspot_clicked, cid)
 
         # Guardar a posição percentual como atributo do botão.
         btn._x_pct = x_pct  # noqa: SLF001
         btn._y_pct = y_pct  # noqa: SLF001
 
-        self._fixed.put(btn, 0, 0)
+        self._overlay.add_overlay(btn)
         self._hotspot_buttons[cid] = btn
+        # O tooltip nasce completo: antes só ganhava a ação depois do primeiro
+        # refresh, e quem passasse o mouse antes disso via só o nome do botão.
+        self._describe_tooltip(cid)
 
         # Popover
         popover = self._create_popover(cid)
@@ -241,48 +282,72 @@ class MouseHotspotView(Gtk.Box):
 
     # -- Posicionamento ----------------------------------------------------
 
-    def _reposition(self) -> bool:
-        """Recalcula a posição de cada hotspot com base no tamanho atual."""
-        alloc = self._picture.get_allocation()
-        if alloc.width <= 1 or alloc.height <= 1:
-            return False  # Ainda sem layout
+    def _image_area(self) -> tuple[float, float, float, float] | None:
+        """Onde a imagem realmente está dentro do widget.
 
-        # O Gtk.Picture com ContentFit.CONTAIN pode ter barras; precisamos
-        # calcular a área efetiva da imagem.
+        O ``Gtk.Picture`` com ``ContentFit.CONTAIN`` preserva a proporção e
+        deixa barras de um lado ou do outro. Os percentuais dos marcadores
+        são relativos à imagem, não ao widget, então essas barras precisam
+        entrar na conta — senão os marcadores escorregam conforme a janela
+        muda de formato.
+        """
+        largura = self._overlay.get_width()
+        altura = self._overlay.get_height()
+        if largura <= 1 or altura <= 1:
+            return None
+
         paintable = self._picture.get_paintable()
         if paintable is None:
-            return False
+            return None
+        intrinseca_w = paintable.get_intrinsic_width()
+        intrinseca_h = paintable.get_intrinsic_height()
+        if intrinseca_w <= 0 or intrinseca_h <= 0:
+            return None
 
-        intrinsic_w = paintable.get_intrinsic_width()
-        intrinsic_h = paintable.get_intrinsic_height()
-        if intrinsic_w <= 0 or intrinsic_h <= 0:
-            return False
-
-        img_ratio = intrinsic_w / intrinsic_h
-        widget_ratio = alloc.width / alloc.height
-
-        if widget_ratio > img_ratio:
-            # Imagem pilotada pela altura; barras laterais
-            rendered_h = alloc.height
-            rendered_w = rendered_h * img_ratio
+        proporcao = intrinseca_w / intrinseca_h
+        if largura / altura > proporcao:
+            desenhada_h = altura
+            desenhada_w = desenhada_h * proporcao
         else:
-            # Imagem pilotada pela largura; barras acima/abaixo
-            rendered_w = alloc.width
-            rendered_h = rendered_w / img_ratio
+            desenhada_w = largura
+            desenhada_h = desenhada_w / proporcao
 
-        offset_x = (alloc.width - rendered_w) / 2
-        offset_y = (alloc.height - rendered_h) / 2
+        return (
+            (largura - desenhada_w) / 2,
+            (altura - desenhada_h) / 2,
+            desenhada_w,
+            desenhada_h,
+        )
 
-        btn_half = 14  # Metade do tamanho do botão (28px / 2)
+    def _place_hotspot(
+        self, _overlay: Gtk.Overlay, widget: Gtk.Widget, alocacao: Gdk.Rectangle
+    ) -> bool:
+        """Onde um marcador fica, recalculado a cada alocação do overlay.
 
-        for cid, btn in self._hotspot_buttons.items():
-            x_pct = btn._x_pct / 100.0  # noqa: SLF001
-            y_pct = btn._y_pct / 100.0  # noqa: SLF001
-            px = offset_x + x_pct * rendered_w - btn_half
-            py = offset_y + y_pct * rendered_h - btn_half
-            self._fixed.move(btn, px, py)
+        O retângulo chega como terceiro argumento e tem que ser **preenchido
+        no lugar**; devolver um novo não tem efeito. Devolvendo a tupla, o
+        overlay caía no posicionamento padrão e dava a cada marcador a área
+        inteira — e como ``.hotspot-button`` é um círculo branco, o resultado
+        era uma mancha branca cobrindo o desenho.
+        """
+        x_pct = getattr(widget, "_x_pct", None)
+        if x_pct is None:
+            return False
 
-        return False  # Não repetir o idle_add
+        area = self._image_area()
+        if area is None:
+            return False
+        offset_x, offset_y, desenhada_w, desenhada_h = area
+
+        _minimo, natural = widget.get_preferred_size()
+        largura = natural.width or _HOTSPOT_PX
+        altura = natural.height or _HOTSPOT_PX
+
+        alocacao.x = int(offset_x + x_pct / 100.0 * desenhada_w - largura / 2)
+        alocacao.y = int(offset_y + widget._y_pct / 100.0 * desenhada_h - altura / 2)  # noqa: SLF001
+        alocacao.width = largura
+        alocacao.height = altura
+        return True
 
     # -- Interação ---------------------------------------------------------
 
@@ -336,6 +401,18 @@ class MouseHotspotView(Gtk.Box):
         if control is not None:
             self._on_clear(control)
 
+    def _describe_tooltip(self, cid: int) -> None:
+        """Põe no marcador o nome do botão e o que ele faz hoje."""
+        btn = self._hotspot_buttons.get(cid)
+        control = self._controls.get(cid)
+        if btn is None or control is None:
+            return
+        binding, herdado = self._binding_for(cid)
+        descricao = self._describe_binding(binding)
+        if herdado:
+            descricao = _("{}  ·  inherited from Global").format(descricao)
+        btn.set_tooltip_text(f"{control.label} — {descricao}")
+
     # -- API pública -------------------------------------------------------
 
     def refresh_hotspot(self, cid: int) -> None:
@@ -343,16 +420,7 @@ class MouseHotspotView(Gtk.Box):
 
         Chamado por ``_refresh_button_row_by_cid`` na janela principal.
         """
-        btn = self._hotspot_buttons.get(cid)
-        if btn is None:
-            return
-        # Atualizar tooltip
-        control = self._controls.get(cid)
-        if control is None:
-            return
-        binding, _inherited = self._binding_for(cid)
-        desc = self._describe_binding(binding)
-        btn.set_tooltip_text(f"{control.label} — {desc}")
+        self._describe_tooltip(cid)
 
     def refresh_all(self) -> None:
         """Atualiza todos os hotspots."""
