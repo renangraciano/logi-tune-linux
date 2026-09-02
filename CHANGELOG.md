@@ -10,7 +10,7 @@ changes; they are always called out under **Changed** with a migration note.
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-09-01
+## [0.2.0] - 2026-09-02
 
 The release where the mouse becomes configurable without a text editor. 0.1.0
 could read and write the device; this one gives buttons something to do, and
@@ -40,12 +40,15 @@ gives you a window to say what.
   separates them is continuity, since accidental movement arrives in one sample
   and a real drag in dozens.
 
-- **A window that can do the work**: a drawing of the mouse with markers over
-  each button, profile tabs per application, an action picker, and the gesture
-  editor. Editing `config.json` by hand is now optional.
+- **A window that can do the work**: a list of every programmable button,
+  profile tabs per application, an action picker that lists the installed
+  applications rather than asking for an identifier, sliders for pointer speed,
+  and editors for gestures and for the thumb wheel. Editing `config.json` by
+  hand is now optional.
 
-- **The thumb wheel as an application switcher**, the feature Logi Options+
-  calls App Switcher. Alt is held while the wheel turns and released when it
+- **The thumb wheel takes any action in the catalogue**, one per direction of
+  travel, or the application switcher — the feature Logi Options+ calls App
+  Switcher. In that mode Alt is held while the wheel turns and released when it
   stops, since letting go between notches would close the switcher and restart
   the list every time.
 
@@ -85,6 +88,34 @@ gives you a window to say what.
   existing configurations run untouched.
 
 ### Fixed
+
+- **Nothing under Pointer or Scrolling was saved.** The DPI, the SmartShift
+  threshold, the ratchet, both scroll switches and the thumb-wheel inversion
+  were written straight to the device and never to `config.json`, while the
+  daemon re-applies the profile on every window focus change — so each of them
+  lasted until the next application took focus. They go through the
+  configuration now, which is also what makes them work per profile.
+
+- **The profile tabs governed only the button list.** Selecting a profile and
+  changing the DPI wrote to Global. Pointer and Scrolling now follow the
+  selected profile and say when a value is inherited from Global instead of
+  presenting it as their own.
+
+- **Binding an application to a button did nothing.** PyGObject raises
+  `TypeError` when `Gio.DesktopAppInfo.new` returns NULL rather than returning
+  `None`, so the fallback path was unreachable and the action died with a
+  traceback in the journal. Lookup also expected a desktop id where a person
+  naturally writes the command name — `gnome-calculator` against
+  `org.gnome.Calculator.desktop` — and now accepts the id, the executable or
+  the visible name. The field itself lists the installed applications.
+
+- **Buttons could not be told apart while being configured.** The editor named
+  the button only in the dialog title; it now names the button and the profile
+  the binding applies to. Tooltips were two in the entire window, both on the
+  header bar.
+
+- The window opened scrolled to whichever row had taken focus, rather than at
+  the top of the page.
 
 - **Diverted button actions never fired.** `HidrawTransport.read(0)` computed
   its deadline and then compared it against a later clock reading, so the
