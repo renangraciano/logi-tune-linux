@@ -1,0 +1,19 @@
+# O que entra no sdist além do código.
+#
+# Os catálogos são o motivo de este arquivo existir. O `python -m build`
+# monta o sdist e depois constrói o wheel *a partir dele*, então um `po/`
+# ausente aqui significa que o setup.py não acha nenhum `.po` para compilar
+# e o wheel sai sem tradução — sem erro, só em inglês.
+include po/*.po
+include po/*.pot
+
+include LICENSE
+include CHANGELOG.md
+include README.pt-BR.md
+include SECURITY.md
+include CONTRIBUTING.md
+
+# A regra udev, a unidade do systemd e o ícone: quem instalar pelo sdist
+# precisa deles para o programa fazer algo além de abrir.
+recursive-include packaging *
+recursive-include scripts *.sh

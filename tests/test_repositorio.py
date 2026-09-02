@@ -32,3 +32,24 @@ def test_o_pacote_nao_carrega_bitmap():
         if p.is_file() and p.suffix.lower() in BITMAPS
     )
     assert encontrados == [], f"bitmap dentro do pacote: {encontrados}"
+
+
+def test_o_sdist_leva_os_catalogos():
+    """Sem `po/` no sdist, o wheel sai sem tradução e sem erro.
+
+    O ``python -m build`` monta o sdist e constrói o wheel *a partir dele*.
+    Sem MANIFEST.in o sdist não leva os ``.po``, então o passo de compilação
+    do setup.py não acha nenhum catálogo, não reclama, e o pacote instala em
+    inglês. A checagem do workflow de release pega isso, mas só na hora de
+    publicar.
+    """
+    manifesto = RAIZ / "MANIFEST.in"
+    assert manifesto.is_file(), "MANIFEST.in sumiu; o sdist perde os catálogos"
+    linhas = [
+        l.strip()
+        for l in manifesto.read_text(encoding="utf-8").splitlines()
+        if l.strip() and not l.strip().startswith("#")
+    ]
+    assert any("po/" in l and l.endswith(".po") for l in linhas), (
+        f"MANIFEST.in não inclui po/*.po: {linhas}"
+    )
