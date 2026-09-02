@@ -56,17 +56,46 @@ class TestFallback:
             i18n.reload_language()
 
 
+def _entradas(po: Path) -> list[tuple[str, str]]:
+    """Os pares ``(msgid, msgstr)`` de um .po, já juntando as continuações."""
+
+    def juntar(linhas: list[str]) -> str:
+        partes = [
+            m.group(1)
+            for m in (re.search(r'"((?:[^"\\]|\\.)*)"\s*$', ln) for ln in linhas)
+            if m
+        ]
+        return "".join(partes)
+
+    pares: list[tuple[str, str]] = []
+    for bloco in po.read_text(encoding="utf-8").split("\n\n"):
+        linhas = bloco.split("\n")
+        i_id = next((i for i, l in enumerate(linhas) if l.startswith("msgid ")), None)
+        i_str = next((i for i, l in enumerate(linhas) if l.startswith("msgstr ")), None)
+        if i_id is None or i_str is None:
+            continue
+        pares.append((juntar(linhas[i_id:i_str]), juntar(linhas[i_str:])))
+    return pares
+
+
 class TestCatalogo:
     def test_o_pot_existe(self):
         assert POT.is_file(), "rode xgettext para gerar po/logi-tune-linux.pot"
 
     @pytest.mark.parametrize("po", sorted(PO_DIR.glob("*.po")), ids=lambda p: p.stem)
     def test_nenhuma_mensagem_sem_traducao(self, po: Path):
-        """Uma mensagem sem tradução vira inglês no meio da janela traduzida."""
-        texto = po.read_text(encoding="utf-8")
-        # O cabeçalho é o único msgid vazio, e o msgstr dele não é tradução.
-        corpo = texto.split('\n\n', 1)[1] if '\n\n' in texto else texto
-        vazias = re.findall(r'msgid "((?:[^"\\]|\\.)+)"\nmsgstr ""\n', corpo)
+        """Uma mensagem sem tradução vira inglês no meio da janela traduzida.
+
+        A entrada precisa ser lida inteira. O gettext quebra uma mensagem
+        longa em ``msgstr ""`` seguido das linhas de continuação, e uma busca
+        por ``msgstr ""`` sozinha acusa como vazia toda tradução comprida —
+        que foi o que aconteceu na primeira versão deste teste.
+        """
+        vazias = [
+            msgid
+            for msgid, msgstr in _entradas(po)
+            if msgid and not msgstr
+        ]
         assert vazias == [], f"sem tradução em {po.name}: {vazias[:5]}"
 
     @pytest.mark.parametrize("po", sorted(PO_DIR.glob("*.po")), ids=lambda p: p.stem)
