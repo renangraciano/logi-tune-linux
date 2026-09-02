@@ -121,3 +121,39 @@ class TestEditorDaRoda:
         self._escolher(dialogo, "actions")
         assert gravado[0] == {}
         assert WheelBinding.parse(gravado[0]).stateful is None
+
+
+@requer_gtk
+class TestRotulos:
+    """O resumo da roda não pode mostrar identificador cru.
+
+    ``window.switch_apps`` é comportamento da roda e não uma entrada do
+    catálogo, então ``resolve()`` levanta ``UnknownAction`` para ele. O menu
+    antigo escondia isso porque tinha rótulos próprios; a linha de resumo caía
+    no id e mostrava "window.switch_apps" na tela.
+    """
+
+    def test_o_alternador_tem_nome(self):
+        from logitune.actions.binding import STATEFUL_WHEEL_ACTIONS
+        from logitune.ui.wheel_dialog import mode_label
+
+        rotulo = mode_label("switch")
+        assert rotulo
+        assert rotulo not in STATEFUL_WHEEL_ACTIONS
+        assert "." not in rotulo, f"{rotulo!r} parece um identificador"
+
+    def test_todo_modo_tem_rotulo_legivel(self):
+        from logitune.ui.wheel_dialog import _MODOS, mode_label
+
+        for modo in _MODOS:
+            rotulo = mode_label(modo)
+            assert rotulo and rotulo != modo, f"{modo} sem rótulo"
+
+    def test_nenhum_comportamento_continuo_fica_sem_nome(self):
+        """Um comportamento novo precisa entrar nos modos do editor."""
+        from logitune.actions.binding import STATEFUL_WHEEL_ACTIONS
+
+        assert STATEFUL_WHEEL_ACTIONS == {"window.switch_apps"}, (
+            "surgiu um comportamento contínuo novo: dê um modo a ele em "
+            "wheel_dialog, senão o resumo mostra o id cru"
+        )

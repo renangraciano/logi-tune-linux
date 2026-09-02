@@ -14,14 +14,13 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
+from logitune.actions.binding import STATEFUL_WHEEL_ACTIONS  # noqa: E402
 from logitune.config import Match, Profile, Settings  # noqa: E402
 from logitune.i18n import _  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
 from logitune.ui.desktop import ACCEL_PROFILES, DesktopMouseSettings  # noqa: E402
-from logitune.ui.mouse_model import MX_MASTER_4_EXTRAS  # noqa: E402
-from logitune.ui.mouse_view import MouseHotspotView  # noqa: E402
-from logitune.ui.wheel_dialog import WheelDialog  # noqa: E402
+from logitune.ui.wheel_dialog import WheelDialog, mode_label  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
@@ -384,54 +383,18 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         group = Adw.PreferencesGroup(
             title=_("Buttons"),
-            description=_("Click a button on the mouse, or pick one from the list."),
+            description=_("Pick a button to choose what it does."),
         )
 
         self._button_rows = {}
         self._button_controls = {}
 
-        # A roda do polegar aparece no desenho e não é um botão: sem esta
-        # entrada ela ficava desenhada, sem marcador, e a única forma de
-        # configurá-la era achar a seção certa no fim da página.
-        extras = []
-        if device.thumbwheel is not None:
-            for ponto in MX_MASTER_4_EXTRAS:
-                if ponto.key != "thumbwheel":
-                    continue
-                extras.append(
-                    (
-                        ponto,
-                        _("Thumb wheel"),
-                        self._describe_wheel,
-                        self._edit_wheel,
-                        self._clear_wheel,
-                    )
-                )
-
-        self._mouse_view = MouseHotspotView(
-            controls=divertable,
-            model_name=device.name,
-            binding_for=self._binding_for,
-            describe_binding=self._describe_binding,
-            on_configure=self._pick_action,
-            on_clear=self._clear_binding,
-            extras=extras,
-        )
-        if self._mouse_view.available:
-            # O desenho vai num grupo só dele, antes da lista. Um
-            # Adw.PreferencesGroup põe o que não é linha *depois* das linhas,
-            # e o desenho acabava no rodapé da seção — longe do texto que
-            # manda clicar nele.
-            desenho = Adw.PreferencesGroup()
-            desenho.add(self._mouse_view)
-            page.add(desenho)
-        else:
-            self._mouse_view = None
-
-        # A lista fica junto do desenho, não no lugar dele. O desenho é para
-        # reconhecer o botão pela posição; a lista é o que garante que nenhum
-        # botão fique inalcançável — nem os que não têm lugar no desenho, como
-        # o gesto virtual — e é o único caminho por teclado e leitor de tela.
+        # Houve aqui um desenho do mouse com marcadores sobre cada botão. Ele
+        # saiu porque, para acertar, precisaria representar fielmente um
+        # aparelho que não temos como medir — e um marcador no lugar errado
+        # ensina a coisa errada, o que é pior do que não desenhar nada. A
+        # lista alcança todos os botões, inclusive os que nenhum desenho
+        # mostraria, e é o único caminho por teclado e leitor de tela.
         for control in divertable:
             self._button_controls[control.control_id] = control
             group.add(self._make_button_row(control))
@@ -725,9 +688,6 @@ class LogituneWindow(Adw.ApplicationWindow):
         dialogo.present(self)
 
     def _refresh_all_button_rows(self) -> None:
-        mouse_view = getattr(self, "_mouse_view", None)
-        if mouse_view is not None:
-            mouse_view.refresh_all()
         for cid in list(self._button_rows):
             self._refresh_button_row_by_cid(cid)
         self._refresh_wheel()
@@ -739,10 +699,16 @@ class LogituneWindow(Adw.ApplicationWindow):
         config = self._store.load()
         vinculo = self._edited_settings(config).wheel_binding()
         if vinculo.stateful:
+            # O alternador é comportamento da roda, não uma entrada do
+            # catálogo, então resolve() não o conhece — e sem este caso a
+            # linha mostrava "window.switch_apps" cru para quem passasse por
+            # ali. O rótulo é o mesmo que o editor usa.
+            if vinculo.stateful in STATEFUL_WHEEL_ACTIONS:
+                return mode_label("switch")
             try:
                 return resolve(Binding(action=vinculo.stateful)).label
             except UnknownAction:
-                return vinculo.stateful
+                return _("Unknown action: {}").format(vinculo.stateful)
         partes = []
         # Os rótulos são os mesmos do editor de propósito: "forward" e "back"
         # sozinhos colidiriam com os botões Voltar e Avançar na tradução.
@@ -793,10 +759,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._toast(_("The thumb wheel scrolls sideways again."))
 
     def _refresh_wheel(self) -> None:
-        """Atualiza o marcador e a linha da roda sem remontar a página."""
-        mouse_view = getattr(self, "_mouse_view", None)
-        if mouse_view is not None:
-            mouse_view.refresh_hotspot("thumbwheel")
+        """Atualiza a linha da roda sem remontar a página."""
         linha = getattr(self, "_wheel_row", None)
         if linha is not None:
             linha.set_subtitle(self._describe_wheel())
@@ -865,12 +828,6 @@ class LogituneWindow(Adw.ApplicationWindow):
         quando o daemon está falando com o mouse ao mesmo tempo — a seção
         inteira desaparecia logo depois de atribuir uma ação.
         """
-        # Hotspots da visualização do mouse.
-        mouse_view = getattr(self, "_mouse_view", None)
-        if mouse_view is not None:
-            mouse_view.refresh_hotspot(cid)
-
-        # Linhas de botão legadas (remap group usa-as via _button_rows).
         row = self._button_rows.get(cid)
         if row is None:
             return

@@ -39,7 +39,7 @@ _ALTERNADOR = "window.switch_apps"
 _MODOS = ("scroll", "actions", "switch")
 
 
-def _rotulo_do_modo(modo: str) -> str:
+def mode_label(modo: str) -> str:
     """O nome de um modo, traduzido na hora de montar.
 
     Traduzir numa constante de módulo fixaria o texto no idioma que valia na
@@ -131,7 +131,7 @@ class WheelDialog(Adw.Dialog):
         combo = Adw.ComboRow(title=_("Mode"))
         modelo = Gtk.StringList()
         for valor in _MODOS:
-            modelo.append(_rotulo_do_modo(valor))
+            modelo.append(mode_label(valor))
         combo.set_model(modelo)
         combo.set_selected(_MODOS.index(modo))
         combo.connect("notify::selected", self._on_mode_changed)
