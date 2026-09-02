@@ -208,9 +208,11 @@ class LogituneWindow(Adw.ApplicationWindow):
         finally:
             self._loading = False
 
-        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-        scroller.set_child(page)
-        self._toasts.set_child(scroller)
+        # A Adw.PreferencesPage já rola sozinha: ela tem um
+        # Gtk.ScrolledWindow interno. Envolvê-la num segundo criava dois
+        # roladores aninhados, e o de fora — o que o código pegava para
+        # mandar a página ao topo — não tinha nada para rolar.
+        self._toasts.set_child(page)
         self._rebuild_profile_bar()
 
         # A primeira linha focável ganhava o foco sozinha, e o rolador ia
@@ -218,7 +220,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         # destacada como se estivesse sendo editada. Começar do topo, sem
         # nada em foco, é o que se espera de uma tela de ajustes.
         self.set_focus(None)
-        GLib.idle_add(lambda: (scroller.get_vadjustment().set_value(0), False)[1])
+        GLib.idle_add(lambda: (page.scroll_to_top(), False)[1])
 
         if falhas:
             self._toast(

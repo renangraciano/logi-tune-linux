@@ -66,8 +66,10 @@ class ButtonDialog(Adw.Dialog):
         self._profile = profile
 
         self._page = Adw.PreferencesPage()
-        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
-        scroller.set_child(self._page)
+        # A Adw.PreferencesPage já rola sozinha: ela tem um
+        # Gtk.ScrolledWindow interno. Envolvê-la num segundo criava dois
+        # roladores aninhados, e o de fora — o que o código pegava para
+        # mandar a página ao topo — não tinha nada para rolar.
 
         # Qual botão está sendo editado precisa ficar visível o tempo todo. O
         # título de um Adw.Dialog é discreto de propósito, e com seis botões
@@ -80,7 +82,7 @@ class ButtonDialog(Adw.Dialog):
         toolbar.add_top_bar(
             Adw.HeaderBar(title_widget=Adw.WindowTitle(title=title, subtitle=subtitulo))
         )
-        toolbar.set_content(scroller)
+        toolbar.set_content(self._page)
         self.set_child(toolbar)
 
         self._rebuild()
@@ -91,7 +93,7 @@ class ButtonDialog(Adw.Dialog):
         # A Adw.PreferencesPage não remove grupos por API pública, então a
         # reconstrução troca a página inteira dentro do scroller.
         self._page = Adw.PreferencesPage()
-        self.get_child().get_content().set_child(self._page)
+        self.get_child().set_content(self._page)
 
         vinculo = self._read()
         usa_gestos = bool(vinculo and vinculo.gestures)
