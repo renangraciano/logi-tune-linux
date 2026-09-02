@@ -94,6 +94,40 @@ measured rather than guessed; see [Gestures](#gestures-optional).
 
 ## Install
 
+### From the .deb (Ubuntu, Debian and derivatives)
+
+Download the package from the
+[latest release](https://github.com/renangraciano/logi-tune-linux/releases/latest)
+and install it with apt, which pulls the dependencies for you:
+
+```bash
+sudo apt install ./logi-tune-linux_*_all.deb
+```
+
+Use `apt` rather than `dpkg -i`: the package needs `python3-gi` and the GTK 4
+and libadwaita typelibs, and `dpkg` would install without them and leave the
+window unable to start.
+
+The package brings the udev rule, the menu entry and the service unit with it.
+Two steps are left, and neither can be done for you:
+
+```bash
+# 1. Replug the receiver so the rule applies, then log out and back in so the
+#    /dev/uinput access is granted to your session.
+# 2. Start the service that applies actions and profiles.
+systemctl --user enable --now logitune-daemon
+
+logitune doctor    # checks every step and names whatever is missing
+```
+
+To remove it: `sudo apt remove logi-tune-linux`. Read the note about settings
+stored in the mouse under [uninstalling](#uninstalling) first — some of them
+outlive the package.
+
+### From source
+
+Also how to get changes that are not in a release yet.
+
 ```bash
 git clone https://github.com/renangraciano/logi-tune-linux.git
 cd logi-tune-linux
@@ -134,6 +168,16 @@ for whatever is missing.
 
 ### Updating
 
+From the .deb, download the newer package and install it the same way — apt
+replaces the installed version:
+
+```bash
+sudo apt install ./logi-tune-linux_*_all.deb
+systemctl --user restart logitune-daemon
+```
+
+From source:
+
 ```bash
 cd logi-tune-linux
 git pull
@@ -150,6 +194,16 @@ about device access after an update — the rule changes rarely, but when it doe
 it needs reinstalling and a replug.
 
 ### Uninstalling
+
+From the .deb — the package owns the rule, the unit and the menu entry, so
+removing it takes them with it:
+
+```bash
+systemctl --user disable --now logitune-daemon
+sudo apt remove logi-tune-linux
+```
+
+From source:
 
 ```bash
 systemctl --user disable --now logitune-daemon
@@ -477,11 +531,6 @@ If you decode something, please [open an issue](https://github.com/renangraciano
 Tracked as [issues](https://github.com/renangraciano/logi-tune-linux/issues),
 roughly in the order they matter.
 
-**Next**
-
-- [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) `.deb` and
-  Flatpak packages, so installing does not mean cloning a repository
-
 **Risky, or research with an uncertain outcome**
 
 - [#14](https://github.com/renangraciano/logi-tune-linux/issues/14) Extended
@@ -495,6 +544,10 @@ roughly in the order they matter.
 - [#17](https://github.com/renangraciano/logi-tune-linux/issues/17) Test on mice
   other than the MX Master 4 — the stack is generic HID++ 2.0, it just needs
   hardware
+- [#33](https://github.com/renangraciano/logi-tune-linux/issues/33) A Flatpak.
+  The sandbox cannot install the udev rule or the service unit on the host, so
+  it would not remove the manual steps the `.deb` does — the reason it is not
+  simply the next package after it
 
 Issues marked *good first issue* are self-contained and do not need the
 hardware to get started.
