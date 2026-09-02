@@ -52,6 +52,7 @@ class ButtonDialog(Adw.Dialog):
         write,
         *,
         gestures_enabled: bool = True,
+        profile: str | None = None,
     ) -> None:
         super().__init__()
         self.set_title(title)
@@ -62,13 +63,23 @@ class ButtonDialog(Adw.Dialog):
         self._read = read
         self._write = write
         self._gestures_enabled = gestures_enabled
+        self._profile = profile
 
         self._page = Adw.PreferencesPage()
         scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         scroller.set_child(self._page)
 
+        # Qual botão está sendo editado precisa ficar visível o tempo todo. O
+        # título de um Adw.Dialog é discreto de propósito, e com seis botões
+        # parecidos e o diálogo aberto por um marcador no desenho, era fácil
+        # perder a conta de qual deles estava na tela.
+        subtitulo = (
+            _("in “{}”").format(profile) if profile else _("this mouse")
+        )
         toolbar = Adw.ToolbarView()
-        toolbar.add_top_bar(Adw.HeaderBar())
+        toolbar.add_top_bar(
+            Adw.HeaderBar(title_widget=Adw.WindowTitle(title=title, subtitle=subtitulo))
+        )
         toolbar.set_content(scroller)
         self.set_child(toolbar)
 
@@ -84,6 +95,19 @@ class ButtonDialog(Adw.Dialog):
 
         vinculo = self._read()
         usa_gestos = bool(vinculo and vinculo.gestures)
+
+        identificacao = Adw.PreferencesGroup()
+        cabecalho = Adw.ActionRow(
+            title=GLib.markup_escape_text(self._label),
+            subtitle=(
+                _("Applies only while “{}” is in front").format(self._profile)
+                if self._profile
+                else _("Applies whenever no profile takes over")
+            ),
+        )
+        cabecalho.add_prefix(Gtk.Image.new_from_icon_name("input-mouse-symbolic"))
+        identificacao.add(cabecalho)
+        self._page.add(identificacao)
 
         modo = Adw.PreferencesGroup(
             title=_("How this button responds"),

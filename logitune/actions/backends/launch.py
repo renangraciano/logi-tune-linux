@@ -82,6 +82,45 @@ def list_apps() -> list[AppEntry]:
     return sorted(entradas, key=lambda e: e.name.casefold())
 
 
+def _desktop_info(desktop_id: str):
+    """``Gio.DesktopAppInfo`` para um id, ou ``None`` se não existir.
+
+    O PyGObject **levanta ``TypeError``** quando o construtor devolve NULL,
+    em vez de devolver ``None``. Sem este embrulho a exceção sobe e mata a
+    ação: era por isso que atribuir um aplicativo a um botão não fazia nada,
+    nem sequer caía no caminho alternativo logo abaixo.
+    """
+    Gio = _gio()
+    try:
+        return Gio.DesktopAppInfo.new(desktop_id)
+    except TypeError:
+        return None
+
+
+def find_app(target: str):
+    """Acha um aplicativo por id ``.desktop``, executável ou nome visível.
+
+    Quem escreve à mão põe o nome do comando — ``gnome-calculator`` — e o id
+    é outra coisa, ``org.gnome.Calculator.desktop``. Procurar pelos três é o
+    que faz a forma escrita à mão funcionar como a escolhida na lista.
+    """
+    Gio = _gio()
+    ids = [target] if target.endswith(".desktop") else [f"{target}.desktop", target]
+    for desktop_id in ids:
+        info = _desktop_info(desktop_id)
+        if info is not None:
+            return info
+
+    alvo = target.removesuffix(".desktop").casefold()
+    for info in Gio.AppInfo.get_all():
+        executavel = (info.get_executable() or "").rsplit("/", 1)[-1]
+        if executavel.casefold() == alvo:
+            return info
+        if (info.get_display_name() or "").casefold() == alvo:
+            return info
+    return None
+
+
 def launch_app(target: str) -> None:
     """Inicia um aplicativo pelo id ``.desktop`` ou por uma linha de comando.
 
@@ -89,12 +128,15 @@ def launch_app(target: str) -> None:
     a linha de comando é o que uma pessoa escreve à mão no JSON.
     """
     Gio = _gio()
-    desktop_id = target if target.endswith(".desktop") else f"{target}.desktop"
-    info = Gio.DesktopAppInfo.new(desktop_id)
+    info = find_app(target)
     if info is None:
-        info = Gio.AppInfo.create_from_commandline(
-            target, None, Gio.AppInfoCreateFlags.NONE
-        )
+        try:
+            info = Gio.AppInfo.create_from_commandline(
+                target, None, Gio.AppInfoCreateFlags.NONE
+            )
+        except TypeError as exc:
+            # NULL de novo: a linha de comando não pôde ser interpretada.
+            raise ActionError(f"não encontrei o aplicativo {target!r}") from exc
     if info is None:
         raise ActionError(f"não encontrei o aplicativo {target!r}")
     try:

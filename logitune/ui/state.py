@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Estado compartilhado entre a interface e o daemon.
 
-Os ajustes do mouse vivem em dois lugares que precisam concordar. O DPI e o
-modo da roda são estado do dispositivo, e a interface os escreve direto. Já os
-perfis e o que cada botão faz são decisão do daemon, e moram no
-``config.json`` — a interface não os aplica, ela os *grava*, e avisa o daemon.
+O ``config.json`` é a fonte da verdade, inclusive para o que parece estado do
+mouse. O DPI e o modo da roda ficam gravados no dispositivo, sim, mas o daemon
+reaplica o perfil a cada troca de janela — então um valor que a interface
+escrevesse direto no mouse, sem gravar aqui, seria desfeito no próximo
+aplicativo que ganhasse o foco. A interface não aplica: ela *grava*, e avisa o
+daemon.
 
 Sem esse aviso a interface mentiria: o daemon lê a configuração ao iniciar, e
 uma mudança gravada em disco não valeria até o próximo reinício. É por isso

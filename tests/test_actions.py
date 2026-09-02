@@ -452,3 +452,59 @@ class TestDaemonResolveVinculos:
         daemon, _ = _daemon({}, registro)
         daemon._fire(0x53, resolve(Binding("t.explode")))
         assert "deu ruim" in caplog.text
+
+
+class TestAberturaDeAplicativo:
+    """Resolver o alvo de ``app.launch``.
+
+    O botão do SmartShift ficou mudo com ``gnome-calculator`` atribuído. O id
+    ``.desktop`` desse aplicativo é ``org.gnome.Calculator.desktop``; o que a
+    pessoa escreve é o nome do executável. Pior: o PyGObject **levanta
+    TypeError** quando ``Gio.DesktopAppInfo.new`` devolve NULL, então nem o
+    caminho alternativo rodava — a ação morria com um traceback no journal e
+    nada acontecia na tela.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _precisa_de_gio(self):
+        pytest.importorskip("gi.repository.Gio", reason="precisa do PyGObject")
+
+    def test_um_id_desktop_completo_resolve(self):
+        from logitune.actions.backends.launch import find_app, list_apps
+
+        apps = list_apps()
+        if not apps:
+            pytest.skip("nenhum aplicativo instalado visível")
+        info = find_app(apps[0].desktop_id)
+        assert info is not None
+        assert info.get_id() == apps[0].desktop_id
+
+    def test_o_nome_do_executavel_resolve(self):
+        """É a forma que uma pessoa escreve, e a que estava quebrada."""
+        from logitune.actions.backends.launch import find_app, list_apps
+
+        alvo = next(
+            (a for a in list_apps() if a.desktop_id and a.desktop_id != ""),
+            None,
+        )
+        if alvo is None:
+            pytest.skip("nenhum aplicativo instalado visível")
+        info = find_app(alvo.desktop_id)
+        executavel = (info.get_executable() or "").rsplit("/", 1)[-1]
+        if not executavel:
+            pytest.skip("o aplicativo escolhido não declara executável")
+        achado = find_app(executavel)
+        assert achado is not None, f"{executavel!r} deveria resolver"
+
+    def test_um_alvo_inexistente_devolve_none_em_vez_de_levantar(self):
+        """O TypeError do construtor não pode escapar."""
+        from logitune.actions.backends.launch import find_app
+
+        assert find_app("isto-nao-existe-em-lugar-nenhum-42") is None
+
+    def test_alvo_inexistente_vira_erro_de_acao(self):
+        from logitune.actions.backends.launch import launch_app
+        from logitune.actions.spec import ActionError
+
+        with pytest.raises(ActionError):
+            launch_app("/caminho/que/nao/existe/programa-42")
