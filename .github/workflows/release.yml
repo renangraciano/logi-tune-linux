@@ -17,16 +17,37 @@ jobs:
         with:
           python-version: "3.12"
 
+      # A comparação é entre versões, não entre strings: uma tag legível como
+      # v0.2.0-rc.1 e o __version__ canônico 0.2.0rc1 são a mesma versão para
+      # o Python, e exigir que batam letra por letra obrigaria a escrever uma
+      # das duas de forma errada.
       - name: Check that the tag matches the package version
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG=$(python -c "import re,pathlib; \
-            print(re.search(r'__version__ = \"([^\"]+)\"', \
-            pathlib.Path('logitune/__init__.py').read_text()).group(1))")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "Tag $TAG does not match __version__ $PKG" >&2
-            exit 1
-          fi
+          python -m pip install --quiet packaging
+          python - <<'PY'
+          import os, pathlib, re, sys
+          from packaging.version import InvalidVersion, Version
+
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          pkg = re.search(
+              r'__version__ = "([^"]+)"',
+              pathlib.Path("logitune/__init__.py").read_text(),
+          ).group(1)
+          try:
+              if Version(tag) != Version(pkg):
+                  sys.exit(f"Tag {tag} is not version {pkg}")
+          except InvalidVersion as exc:
+              sys.exit(f"cannot read a version: {exc}")
+          print(f"tag {tag} == __version__ {pkg}")
+
+          # Quem decide se é pré-release é o parser de versão, não uma busca
+          # por letra no nome da tag: "beta" contém um "b", mas "v1.0.0"
+          # também contém um "0" e a heurística por substring erra cedo.
+          saida = os.environ["GITHUB_OUTPUT"]
+          with open(saida, "a", encoding="utf-8") as f:
+              f.write(f"prerelease={str(Version(tag).is_prerelease).lower()}\n")
+          PY
 
       # O setup.py compila os catálogos durante o build e apenas avisa se o
       # msgfmt faltar. Numa release isso sairia como um pacote sem tradução
@@ -51,16 +72,34 @@ jobs:
           print("\n".join(catalogos))
           PY
 
+      # Uma pré-release não tem seção própria no changelog: ela descreve a
+      # versão que está sendo preparada. Sem esta busca pela versão base, uma
+      # tag rc publicaria apenas "See CHANGELOG.md.".
       - name: Extract release notes for this version
         run: |
+          python -m pip install --quiet packaging
           python - <<'PY' > RELEASE_NOTES.md
           import os, pathlib, re
-          version = os.environ["GITHUB_REF_NAME"].lstrip("v")
-          text = pathlib.Path("CHANGELOG.md").read_text()
-          match = re.search(
-              rf"^## \[{re.escape(version)}\].*?$(.*?)(?=^## \[|\Z)",
-              text, re.M | re.S)
-          print((match.group(1).strip() if match else "See CHANGELOG.md."))
+          from packaging.version import Version
+
+          pedida = Version(os.environ["GITHUB_REF_NAME"].lstrip("v"))
+          texto = pathlib.Path("CHANGELOG.md").read_text()
+
+          def secao(rotulo: str) -> str | None:
+              achado = re.search(
+                  rf"^## \[{re.escape(rotulo)}\].*?$(.*?)(?=^## \[|\Z)",
+                  texto, re.M | re.S)
+              return achado.group(1).strip() if achado else None
+
+          base = ".".join(str(n) for n in pedida.release)
+          corpo = secao(str(pedida)) or secao(base)
+
+          if corpo and pedida.is_prerelease:
+              corpo = (
+                  f"Pre-release for {base}. The notes below are that version's.\n\n"
+                  + corpo
+              )
+          print(corpo or "See CHANGELOG.md.")
           PY
 
       # Pinada por SHA: esta action roda com contents:write, e uma tag móvel
@@ -70,4 +109,4 @@ jobs:
           files: dist/*
           body_path: RELEASE_NOTES.md
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
