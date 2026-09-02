@@ -52,6 +52,17 @@ class LogituneWindow(Adw.ApplicationWindow):
         #: Linhas de botão por CID, para atualizar sem remontar a página.
         self._button_rows: dict[int, Adw.ActionRow] = {}
         self._button_controls: dict[int, object] = {}
+        #: Linhas ligadas a um campo de ``Settings``, por nome do campo, com a
+        #: legenda que a linha mostra quando o valor é próprio do perfil.
+        self._setting_rows: dict[str, tuple[Adw.PreferencesRow, str]] = {}
+        #: O que o mouse relatou ao montar a página. É o que a linha mostra
+        #: quando nem o perfil nem o global dizem nada sobre o campo.
+        self._device_defaults: dict[str, object] = {}
+        #: Grupos e o escopo de cada um: ``(grupo, descrição, segue_o_perfil)``.
+        #: A página mistura o que muda por aplicativo com o que vale sempre, e
+        #: sem dizer qual é qual as abas de perfil no topo parecem governar a
+        #: página inteira — que era a maior fonte de confusão.
+        self._scoped_groups: list[tuple[Adw.PreferencesGroup, str, bool]] = []
         #: Perfil em edição: ``None`` é o global, senão o índice em profiles.
         self._profile_index: int | None = None
 
@@ -168,6 +179,11 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         page = Adw.PreferencesPage()
         falhas: list[str] = []
+        # A página é remontada inteira; os registros da anterior apontariam
+        # para widgets que já saíram.
+        self._scoped_groups = []
+        self._setting_rows = {}
+        self._device_defaults = {}
 
         secoes = (
             ("dispositivo", self._add_device_group),
@@ -195,6 +211,13 @@ class LogituneWindow(Adw.ApplicationWindow):
         scroller.set_child(page)
         self._toasts.set_child(scroller)
         self._rebuild_profile_bar()
+
+        # A primeira linha focável ganhava o foco sozinha, e o rolador ia
+        # atrás dela: a janela abria no meio da página, com uma linha
+        # destacada como se estivesse sendo editada. Começar do topo, sem
+        # nada em foco, é o que se espera de uma tela de ajustes.
+        self.set_focus(None)
+        GLib.idle_add(lambda: (scroller.get_vadjustment().set_value(0), False)[1])
 
         if falhas:
             self._toast(
@@ -237,10 +260,19 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         row = Adw.SpinRow.new_with_range(dpi_range.minimum, dpi_range.maximum, step)
         row.set_title(_("Sensitivity (DPI)"))
-        row.set_subtitle(_("factory default: {}").format(state.default))
-        row.set_value(state.current)
+        row.set_tooltip_text(
+            _(
+                "How far the pointer travels for the same hand movement. "
+                "Higher is faster and less precise. The mouse leaves the "
+                "factory at {}."
+            ).format(state.default)
+        )
+        self._register_setting_row(
+            "dpi", row, state.current, _("factory default: {}").format(state.default)
+        )
         row.connect("notify::value", self._on_dpi_changed)
         group.add(row)
+        self._register_group(group, per_profile=True)
         page.add(group)
 
     def _add_scroll_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
@@ -250,22 +282,39 @@ class LogituneWindow(Adw.ApplicationWindow):
         if device.smartshift:
             state = device.smartshift.get_state()
 
-            ratchet = Adw.SwitchRow(
-                title=_("Wheel locked (ratchet)"),
-                subtitle=_("Off, the wheel spins freely"),
+            ratchet = Adw.SwitchRow(title=_("Wheel locked (ratchet)"))
+            ratchet.set_tooltip_text(
+                _(
+                    "On, the wheel clicks step by step. Off, it spins freely "
+                    "and coasts — good for long documents."
+                )
             )
-            ratchet.set_active(state.mode is WheelMode.RATCHET)
+            self._register_setting_row(
+                "ratchet",
+                ratchet,
+                state.mode is WheelMode.RATCHET,
+                _("Off, the wheel spins freely"),
+            )
             ratchet.connect("notify::active", self._on_ratchet_toggled)
             group.add(ratchet)
 
             point = Adw.SpinRow.new_with_range(1, 255, 1)
             point.set_title(_("SmartShift threshold"))
-            point.set_subtitle(
+            point.set_tooltip_text(
+                _(
+                    "How hard you have to flick the wheel before it unlocks "
+                    "and spins freely. Lower unlocks sooner. The mouse leaves "
+                    "the factory at {}."
+                ).format(state.default_auto_disengage)
+            )
+            self._register_setting_row(
+                "smartshift",
+                point,
+                state.auto_disengage,
                 _("speed that releases the ratchet · default {}").format(
                     state.default_auto_disengage
-                )
+                ),
             )
-            point.set_value(state.auto_disengage)
             point.connect("notify::value", self._on_smartshift_changed)
             group.add(point)
             added = True
@@ -273,32 +322,51 @@ class LogituneWindow(Adw.ApplicationWindow):
         if device.wheel:
             wheel_state = device.wheel.get_state()
 
-            hires = Adw.SwitchRow(
-                title=_("High-resolution scrolling"),
-                subtitle=_("Smooth, pixel-by-pixel scrolling"),
+            hires = Adw.SwitchRow(title=_("High-resolution scrolling"))
+            hires.set_tooltip_text(
+                _(
+                    "Scroll pixel by pixel instead of a line at a time. "
+                    "Smoother, and a few older programs do not follow it."
+                )
             )
-            hires.set_active(wheel_state.high_resolution)
+            self._register_setting_row(
+                "hires_scroll",
+                hires,
+                wheel_state.high_resolution,
+                _("Smooth, pixel-by-pixel scrolling"),
+            )
             hires.connect("notify::active", self._on_hires_toggled)
             group.add(hires)
 
             invert = Adw.SwitchRow(title=_("Invert wheel direction"))
-            invert.set_active(wheel_state.inverted)
+            invert.set_tooltip_text(
+                _("Push the wheel away from you to scroll down instead of up.")
+            )
+            self._register_setting_row(
+                "invert_scroll", invert, wheel_state.inverted, ""
+            )
             invert.connect("notify::active", self._on_invert_toggled)
             group.add(invert)
             added = True
 
         if device.thumbwheel:
             thumb_state = device.thumbwheel.get_state()
-            thumb = Adw.SwitchRow(
-                title=_("Invert the thumb wheel"),
-                subtitle=_("Horizontal scrolling"),
+            thumb = Adw.SwitchRow(title=_("Invert the thumb wheel"))
+            thumb.set_tooltip_text(
+                _("Roll the thumb wheel forward to scroll left instead of right.")
             )
-            thumb.set_active(thumb_state.inverted)
+            self._register_setting_row(
+                "invert_thumb",
+                thumb,
+                thumb_state.inverted,
+                _("Horizontal scrolling"),
+            )
             thumb.connect("notify::active", self._on_thumb_toggled)
             group.add(thumb)
             added = True
 
         if added:
+            self._register_group(group, per_profile=True)
             page.add(group)
 
     def _add_buttons_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
@@ -328,7 +396,13 @@ class LogituneWindow(Adw.ApplicationWindow):
             on_clear=self._clear_binding,
         )
         if self._mouse_view.available:
-            group.add(self._mouse_view)
+            # O desenho vai num grupo só dele, antes da lista. Um
+            # Adw.PreferencesGroup põe o que não é linha *depois* das linhas,
+            # e o desenho acabava no rodapé da seção — longe do texto que
+            # manda clicar nele.
+            desenho = Adw.PreferencesGroup()
+            desenho.add(self._mouse_view)
+            page.add(desenho)
         else:
             self._mouse_view = None
 
@@ -355,6 +429,7 @@ class LogituneWindow(Adw.ApplicationWindow):
                 )
             )
 
+        self._register_group(group, per_profile=True)
         page.add(group)
         if remappable:
             self._add_remap_group(page, device, controls, remappable)
@@ -376,6 +451,116 @@ class LogituneWindow(Adw.ApplicationWindow):
             # O perfil sumiu do arquivo entre uma leitura e outra.
             self._profile_index = None
             return config.default
+
+    # -- ajustes do dispositivo ----------------------------------------
+    #
+    # Um ajuste do mouse não é estado só do mouse: o daemon reaplica o perfil
+    # a cada troca de janela, então quem não estiver no ``config.json`` é
+    # desfeito na primeira vez que você muda de aplicativo. Estas linhas
+    # gravam na configuração e deixam o daemon aplicar, que é o mesmo caminho
+    # que os botões e os gestos já seguiam.
+
+    def _register_group(
+        self, group: Adw.PreferencesGroup, *, per_profile: bool
+    ) -> None:
+        """Anota se um grupo segue o perfil selecionado ou vale sempre."""
+        self._scoped_groups.append((group, group.get_description() or "", per_profile))
+        self._refresh_group_scopes()
+
+    def _refresh_group_scopes(self) -> None:
+        """Reescreve a descrição de cada grupo com o escopo dele."""
+        config = self._store.load()
+        nome = self._profile_label(config)
+        for group, base, per_profile in self._scoped_groups:
+            if per_profile:
+                # No global não há o que esclarecer: ele é a base de todos.
+                nota = (
+                    ""
+                    if self._profile_index is None
+                    else _("Follows the “{}” profile.").format(nome)
+                )
+            else:
+                nota = _("Same in every profile.")
+            group.set_description(" ".join(p for p in (base, nota) if p))
+
+    def _setting_value(self, campo: str) -> tuple[object, bool]:
+        """O valor a mostrar para um campo, e se ele vem do global.
+
+        Um perfil que não diz nada sobre o DPI não zera o DPI: vale o global.
+        Mostrar isso é o que evita a pergunta "por que mudou sozinho".
+        """
+        config = self._store.load()
+        proprio = getattr(self._edited_settings(config), campo)
+        if proprio is not None:
+            return proprio, False
+        if self._profile_index is not None:
+            herdado = getattr(config.default, campo)
+            if herdado is not None:
+                return herdado, True
+        return self._device_defaults.get(campo), False
+
+    def _register_setting_row(
+        self, campo: str, row, do_dispositivo, legenda: str = ""
+    ) -> None:
+        """Liga uma linha a um campo de ``Settings`` e a preenche."""
+        self._setting_rows[campo] = (row, legenda)
+        self._device_defaults[campo] = do_dispositivo
+        self._load_setting_row(campo)
+
+    def _load_setting_row(self, campo: str) -> None:
+        """Põe na linha o valor em vigor, sem disparar uma escrita."""
+        registro = self._setting_rows.get(campo)
+        if registro is None:
+            return
+        row, legenda = registro
+        valor, herdado = self._setting_value(campo)
+        if valor is None:
+            return
+
+        anterior = self._loading
+        self._loading = True
+        try:
+            if isinstance(row, Adw.SpinRow):
+                row.set_value(float(valor))
+            else:
+                row.set_active(bool(valor))
+        finally:
+            self._loading = anterior
+
+        if herdado:
+            row.set_subtitle(
+                _("{}  ·  inherited from Global").format(legenda)
+                if legenda
+                else _("inherited from Global")
+            )
+        else:
+            row.set_subtitle(legenda)
+
+    def _refresh_setting_rows(self) -> None:
+        for campo in list(self._setting_rows):
+            self._load_setting_row(campo)
+
+    def _write_setting(self, campo: str, valor, aplicar, descricao: str) -> None:
+        """Grava um ajuste no perfil em edição e o faz valer agora.
+
+        A janela escrevia direto no mouse e não gravava nada. Como o daemon
+        reaplica o perfil a cada troca de janela, o ajuste durava até a
+        próxima — era o motivo de o limiar do SmartShift parecer não salvar.
+        Agora quem manda é a configuração, e o mouse recebe uma cópia.
+        """
+        if self._loading:
+            return
+
+        def gravar(config) -> None:
+            setattr(self._edited_settings(config), campo, valor)
+
+        self._store.update(gravar)
+        # Tira o "herdado do Global" da linha, que agora tem valor próprio.
+        self._load_setting_row(campo)
+
+        if not self._store.daemon_running():
+            # Sem daemon ninguém aplicaria; a janela faz o papel dele.
+            self._guarded(aplicar, descricao)
 
     def _profile_label(self, config) -> str:
         if self._profile_index is None:
@@ -432,6 +617,8 @@ class LogituneWindow(Adw.ApplicationWindow):
         if not botao.get_active() or self._profile_index == indice:
             return
         self._profile_index = indice
+        self._refresh_group_scopes()
+        self._refresh_setting_rows()
         self._refresh_all_button_rows()
 
     def _add_profile(self) -> None:
@@ -526,6 +713,10 @@ class LogituneWindow(Adw.ApplicationWindow):
 
     def _make_button_row(self, control) -> Adw.ActionRow:
         row = Adw.ActionRow(title=control.label, activatable=True)
+        row.set_tooltip_text(
+            _("Choose what “{}” does. Same button as the marker on the drawing.")
+            .format(control.label)
+        )
 
         limpar = Gtk.Button(
             icon_name="edit-clear-symbolic",
@@ -598,11 +789,17 @@ class LogituneWindow(Adw.ApplicationWindow):
             self._store.update(aplicar)
             self._refresh_button_row_by_cid(cid)
 
+        config = self._store.load()
         ButtonDialog(
             control.label,
             ler,
             gravar,
-            gestures_enabled=self._store.load().gestures_enabled,
+            gestures_enabled=config.gestures_enabled,
+            # O global não é "um perfil": é a base sobre a qual os outros se
+            # aplicam, e o diálogo diz isso com outras palavras.
+            profile=(
+                None if self._profile_index is None else self._profile_label(config)
+            ),
         ).present(self)
 
     def _clear_binding(self, control) -> None:
@@ -661,6 +858,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             alguma = True
 
         if alguma:
+            self._register_group(group, per_profile=False)
             page.add(group)
 
     def _add_gestures_group(
@@ -691,6 +889,13 @@ class LogituneWindow(Adw.ApplicationWindow):
             subtitle=_("Applies to buttons that have gestures configured"),
             active=config.gestures_enabled,
         )
+        switch.set_tooltip_text(
+            _(
+                "Off, every button fires its action the moment you press it. "
+                "On, buttons that have gestures wait for you to release before "
+                "deciding what you meant."
+            )
+        )
         switch.connect("notify::active", self._on_gestures_toggled)
         group.add(switch)
 
@@ -703,6 +908,13 @@ class LogituneWindow(Adw.ApplicationWindow):
         segurar.set_title(_("Hold starts after"))
         segurar.set_subtitle(_("Below this, a press counts as a tap"))
         segurar.set_value(limiares.hold_ms)
+        segurar.set_tooltip_text(
+            _(
+                "In milliseconds. Hold the button longer than this and it "
+                "counts as a hold instead of a tap. Raise it if holds fire "
+                "when you meant to click."
+            )
+        )
         segurar.connect("notify::value", self._on_threshold_changed, "hold_ms")
         group.add(segurar)
 
@@ -710,6 +922,12 @@ class LogituneWindow(Adw.ApplicationWindow):
         duplo.set_title(_("Double tap window"))
         duplo.set_subtitle(_("How long a second tap still counts as a double"))
         duplo.set_value(limiares.double_tap_ms)
+        duplo.set_tooltip_text(
+            _(
+                "In milliseconds. Lower it if two separate taps keep being "
+                "read as one double tap."
+            )
+        )
         duplo.connect("notify::value", self._on_threshold_changed, "double_tap_ms")
         group.add(duplo)
 
@@ -720,6 +938,14 @@ class LogituneWindow(Adw.ApplicationWindow):
               "plain click sometimes turns into one")
         )
         arrasto.set_value(limiares.drag_units)
+        arrasto.set_tooltip_text(
+            _(
+                "How far the mouse has to travel while the button is down "
+                "before it counts as a drag. An ordinary click already moves "
+                "the mouse about a hundred units, so values under that will "
+                "misfire."
+            )
+        )
         arrasto.connect("notify::value", self._on_threshold_changed, "drag_units")
         group.add(arrasto)
 
@@ -739,6 +965,7 @@ class LogituneWindow(Adw.ApplicationWindow):
                 )
             )
 
+        self._register_group(group, per_profile=False)
         page.add(group)
 
     def _on_gestures_toggled(self, row: Adw.SwitchRow, _param) -> None:
@@ -803,6 +1030,12 @@ class LogituneWindow(Adw.ApplicationWindow):
                 (i for i, (v, _r) in enumerate(self._WHEEL_CHOICES) if v == atual), 0
             )
         )
+        combo.set_tooltip_text(
+            _(
+                "Leave it on sideways scrolling to keep the system behaviour. "
+                "Anything else takes the wheel over, and it stops scrolling."
+            )
+        )
         combo.connect("notify::selected", self._on_wheel_changed)
         group.add(combo)
 
@@ -813,6 +1046,13 @@ class LogituneWindow(Adw.ApplicationWindow):
               "Zero keeps it always on")
         )
         economia.set_value(config.haptics_below)
+        economia.set_tooltip_text(
+            _(
+                "The motor is the hungriest part after the sensor. Below this "
+                "battery percentage the gestures still work, they just stop "
+                "buzzing."
+            )
+        )
         economia.connect("notify::value", self._on_haptics_below_changed)
 
         atraso = Adw.SpinRow.new_with_range(100, 5000, 50)
@@ -823,10 +1063,18 @@ class LogituneWindow(Adw.ApplicationWindow):
         )
         atraso.set_value(config.switcher_idle_ms)
         atraso.set_sensitive(atual == "window.switch_apps")
+        atraso.set_tooltip_text(
+            _(
+                "In milliseconds, and the same in every profile. Too short and "
+                "the window comes forward before you finish choosing; too long "
+                "and the switcher feels stuck."
+            )
+        )
         atraso.connect("notify::value", self._on_switcher_delay_changed)
         group.add(atraso)
         self._switcher_delay_row = atraso
 
+        self._register_group(group, per_profile=True)
         page.add(group)
 
         # A economia é do dispositivo, não da roda, mas o motor háptico não
@@ -840,6 +1088,7 @@ class LogituneWindow(Adw.ApplicationWindow):
                 ),
             )
             poupanca.add(economia)
+            self._register_group(poupanca, per_profile=False)
             page.add(poupanca)
 
     def _on_haptics_below_changed(self, row: Adw.SpinRow, _param) -> None:
@@ -912,6 +1161,12 @@ class LogituneWindow(Adw.ApplicationWindow):
             subtitle=_("Swaps the left and right buttons"),
             active=self._desktop.left_handed,
         )
+        canhoto.set_tooltip_text(
+            _(
+                "Changes the whole session, so it affects the touchpad too. "
+                "Written to GNOME settings, not to the mouse."
+            )
+        )
         canhoto.connect("notify::active", self._on_left_handed_changed)
         group.add(canhoto)
 
@@ -923,6 +1178,13 @@ class LogituneWindow(Adw.ApplicationWindow):
               "from the DPI above, which the sensor itself uses")
         )
         velocidade.set_value(self._desktop.speed)
+        velocidade.set_tooltip_text(
+            _(
+                "From -1 (slowest) to 1 (fastest). This is the same slider "
+                "GNOME Settings shows; the DPI above is the sensor itself, and "
+                "the two multiply."
+            )
+        )
         velocidade.connect("notify::value", self._on_pointer_speed_changed)
         group.add(velocidade)
 
@@ -934,6 +1196,12 @@ class LogituneWindow(Adw.ApplicationWindow):
         atual = self._desktop.accel_profile
         aceleracao.set_selected(
             next((i for i, (v, _r) in enumerate(ACCEL_PROFILES) if v == atual), 0)
+        )
+        aceleracao.set_tooltip_text(
+            _(
+                "Adaptive speeds the pointer up as you move faster. Flat maps "
+                "movement one to one, which is what most games expect."
+            )
         )
         aceleracao.connect("notify::selected", self._on_accel_profile_changed)
         group.add(aceleracao)
@@ -985,10 +1253,18 @@ class LogituneWindow(Adw.ApplicationWindow):
                 row.add_suffix(badge)
             else:
                 button = Gtk.Button(label=_("Switch"), valign=Gtk.Align.CENTER)
+                button.set_tooltip_text(
+                    _(
+                        "The mouse leaves this computer at once. Bring it back "
+                        "with the button underneath it, or from the other "
+                        "computer."
+                    )
+                )
                 button.connect("clicked", self._on_host_switch, host.index)
                 row.add_suffix(button)
             group.add(row)
 
+        self._register_group(group, per_profile=False)
         page.add(group)
 
     # -- ações ---------------------------------------------------------
@@ -1023,8 +1299,8 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._debounce(
             "dpi",
             _DEBOUNCE_MS,
-            lambda: self._guarded(
-                lambda: self._device.dpi.set_dpi(value), _("apply the DPI")
+            lambda: self._write_setting(
+                "dpi", value, lambda: self._device.dpi.set_dpi(value), _("apply the DPI")
             ),
         )
 
@@ -1033,34 +1309,47 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._debounce(
             "smartshift",
             _DEBOUNCE_MS,
-            lambda: self._guarded(
+            lambda: self._write_setting(
+                "smartshift",
+                value,
                 lambda: self._device.smartshift.set_state(auto_disengage=value),
                 _("adjust SmartShift"),
             ),
         )
 
     def _on_ratchet_toggled(self, row: Adw.SwitchRow, _param) -> None:
-        mode = WheelMode.RATCHET if row.get_active() else WheelMode.FREESPIN
-        self._guarded(
-            lambda: self._device.smartshift.set_state(mode=mode), _("change the wheel mode")
+        active = row.get_active()
+        mode = WheelMode.RATCHET if active else WheelMode.FREESPIN
+        self._write_setting(
+            "ratchet",
+            active,
+            lambda: self._device.smartshift.set_state(mode=mode),
+            _("change the wheel mode"),
         )
 
     def _on_hires_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
-        self._guarded(
+        self._write_setting(
+            "hires_scroll",
+            active,
             lambda: self._device.wheel.set_state(high_resolution=active),
             _("change the scroll resolution"),
         )
 
     def _on_invert_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
-        self._guarded(
-            lambda: self._device.wheel.set_state(inverted=active), _("invert the wheel")
+        self._write_setting(
+            "invert_scroll",
+            active,
+            lambda: self._device.wheel.set_state(inverted=active),
+            _("invert the wheel"),
         )
 
     def _on_thumb_toggled(self, row: Adw.SwitchRow, _param) -> None:
         active = row.get_active()
-        self._guarded(
+        self._write_setting(
+            "invert_thumb",
+            active,
             lambda: self._device.thumbwheel.set_state(inverted=active),
             _("invert the thumb wheel"),
         )
