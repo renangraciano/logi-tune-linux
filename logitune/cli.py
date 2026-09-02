@@ -440,6 +440,20 @@ def _catalogar_waveforms(device: LogitechDevice, args: argparse.Namespace) -> in
     return 0
 
 
+def _instalacoes() -> tuple[Path, ...]:
+    """Onde o ``logitune-daemon`` pode ter sido instalado.
+
+    São os dois caminhos que o projeto oferece: o pipx põe em ``~/.local/bin``,
+    o pacote em ``/usr/bin``. Separado do diagnóstico para o teste conseguir
+    apontar para outro lugar — sem isso, verificar o aviso exigiria escrever
+    em ``/usr/bin``.
+    """
+    return (
+        Path.home() / ".local" / "bin" / "logitune-daemon",
+        Path("/usr/bin/logitune-daemon"),
+    )
+
+
 def _diagnostico() -> list[tuple[bool, str, str]]:
     """Levanta o estado do que o logitune precisa para funcionar.
 
@@ -576,6 +590,26 @@ def _diagnostico() -> list[tuple[bool, str, str]]:
             pass
         finally:
             close_devices(dispositivos)
+
+    # -- instalações concorrentes -------------------------------------
+    # Com o .deb existindo, dá para acabar com duas cópias: a do pipx em
+    # ~/.local/bin e a do pacote em /usr/bin. Nenhuma das duas reclama, e o
+    # PATH e o systemd escolhem a do pipx — então instalar o pacote por cima
+    # não muda nada e ninguém entende por quê.
+    copias = [caminho for caminho in _instalacoes() if caminho.exists()]
+    if len(copias) > 1:
+        vencedora = shutil.which("logitune-daemon") or str(copias[0])
+        itens.append(
+            (
+                False,
+                _("installation"),
+                _(
+                    "two copies installed ({}); {} is the one that runs. "
+                    "Remove the other with 'pipx uninstall logi-tune-linux' "
+                    "or 'sudo apt remove logi-tune-linux'"
+                ).format(", ".join(str(c) for c in copias), vencedora),
+            )
+        )
 
     # -- daemon ------------------------------------------------------
     systemctl = shutil.which("systemctl")

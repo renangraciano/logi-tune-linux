@@ -107,6 +107,18 @@ Use o `apt`, não o `dpkg -i`: o pacote precisa do `python3-gi` e das typelibs
 do GTK 4 e da libadwaita, e o `dpkg` instalaria sem elas, deixando a janela sem
 conseguir abrir.
 
+**Remova antes uma instalação por pipx.** As duas não conflitam como pacotes, e
+esse é o problema: o `~/.local/bin` vem antes do `/usr/bin` no PATH, e uma
+unidade em `~/.config/systemd/user` vence a do pacote — então a cópia do pipx
+continua rodando e o pacote parece não ter mudado nada. O `logitune doctor`
+avisa se você cair nisso. Para trocar:
+
+```bash
+systemctl --user disable --now logitune-daemon
+rm ~/.config/systemd/user/logitune-daemon.service
+pipx uninstall logi-tune-linux
+```
+
 O pacote leva a regra udev, a entrada de menu e a unidade do serviço. Sobram
 dois passos, e nenhum dá para fazer por você:
 
