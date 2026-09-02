@@ -93,6 +93,40 @@ hardware. Os limiares foram medidos, não chutados.
 
 ## Instalação
 
+### Pelo .deb (Ubuntu, Debian e derivados)
+
+Baixe o pacote da
+[última release](https://github.com/renangraciano/logi-tune-linux/releases/latest)
+e instale com o apt, que resolve as dependências:
+
+```bash
+sudo apt install ./logi-tune-linux_*_all.deb
+```
+
+Use o `apt`, não o `dpkg -i`: o pacote precisa do `python3-gi` e das typelibs
+do GTK 4 e da libadwaita, e o `dpkg` instalaria sem elas, deixando a janela sem
+conseguir abrir.
+
+O pacote leva a regra udev, a entrada de menu e a unidade do serviço. Sobram
+dois passos, e nenhum dá para fazer por você:
+
+```bash
+# 1. Reconecte o receptor para a regra valer, e faça logout/login para o
+#    acesso ao /dev/uinput ser concedido à sua sessão.
+# 2. Ligue o serviço que aplica ações e perfis.
+systemctl --user enable --now logitune-daemon
+
+logitune doctor    # confere cada passo e diz o que falta
+```
+
+Para remover: `sudo apt remove logi-tune-linux`. Leia antes a nota sobre
+ajustes guardados no mouse em [desinstalando](#desinstalando) — alguns
+sobrevivem ao pacote.
+
+### A partir do código
+
+Também é como obter o que ainda não saiu numa release.
+
 ```bash
 git clone https://github.com/renangraciano/logi-tune-linux.git
 cd logi-tune-linux
@@ -134,6 +168,16 @@ fazer para o que estiver faltando.
 
 ### Atualizando
 
+Pelo .deb, baixe o pacote novo e instale do mesmo jeito — o apt substitui a
+versão instalada:
+
+```bash
+sudo apt install ./logi-tune-linux_*_all.deb
+systemctl --user restart logitune-daemon
+```
+
+A partir do código:
+
 ```bash
 cd logi-tune-linux
 git pull
@@ -150,6 +194,16 @@ acesso ao dispositivo depois de atualizar — a regra muda pouco, mas quando
 muda precisa ser reinstalada, com um replug em seguida.
 
 ### Desinstalando
+
+Pelo .deb — o pacote é dono da regra, da unidade e da entrada de menu, então
+removê-lo leva tudo junto:
+
+```bash
+systemctl --user disable --now logitune-daemon
+sudo apt remove logi-tune-linux
+```
+
+A partir do código:
 
 ```bash
 systemctl --user disable --now logitune-daemon
@@ -426,11 +480,6 @@ logitune watch       # desvia botões e mostra os eventos que eles emitem
 
 Acompanhado como [issues](https://github.com/renangraciano/logi-tune-linux/issues).
 
-**A seguir**
-
-- [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) Pacotes
-  `.deb` e Flatpak, para instalar não exigir clonar um repositório
-
 **Arriscado, ou pesquisa de resultado incerto**
 
 - [#14](https://github.com/renangraciano/logi-tune-linux/issues/14) Rolagem
@@ -443,6 +492,10 @@ Acompanhado como [issues](https://github.com/renangraciano/logi-tune-linux/issue
   intensidade háptica e o `0x19C0` — pode não estar exposto
 - [#17](https://github.com/renangraciano/logi-tune-linux/issues/17) Testar em
   mouses além do MX Master 4 — a pilha é HID++ 2.0 genérica, falta hardware
+- [#33](https://github.com/renangraciano/logi-tune-linux/issues/33) Um Flatpak.
+  O sandbox não consegue instalar a regra udev nem a unidade do serviço no
+  hospedeiro, então ele não eliminaria os passos manuais que o `.deb` elimina —
+  que é o motivo de ele não ser simplesmente o próximo pacote
 
 ## Limitações conhecidas
 

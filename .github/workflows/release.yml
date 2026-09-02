@@ -60,6 +60,14 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
+      # O .deb sai do mesmo wheel, então carrega os mesmos catálogos. Ele é
+      # construído antes da verificação abaixo para que, se algo faltar, o
+      # erro apareça uma vez só.
+      - name: Build the Debian package
+        run: |
+          python -m pip install --quiet packaging
+          scripts/build-deb.sh dist
+
       - name: Check the built wheel carries the translations
         run: |
           python - <<'PY'
@@ -70,6 +78,47 @@ jobs:
           if not catalogos:
               sys.exit(f"{wheel} has no compiled translations")
           print("\n".join(catalogos))
+          PY
+
+      # O .deb é montado à mão a partir do wheel, então nada garante sozinho
+      # que cada peça entrou. Um pacote sem a regra udev instala e não dá
+      # acesso ao mouse; sem a unidade, nada aplica perfis.
+      - name: Check the Debian package is complete
+        run: |
+          python - <<'PY'
+          import glob, subprocess, sys
+
+          deb = sorted(glob.glob("dist/*.deb"))[-1]
+          conteudo = subprocess.run(
+              ["dpkg-deb", "-c", deb], capture_output=True, text=True, check=True
+          ).stdout
+          exigidos = [
+              "/usr/bin/logitune",
+              "/usr/bin/logitune-daemon",
+              "/usr/bin/logitune-gui",
+              "/usr/lib/udev/rules.d/70-logitune.rules",
+              "/usr/lib/systemd/user/logitune-daemon.service",
+              "/usr/share/applications/",
+              "/usr/share/icons/hicolor/scalable/apps/",
+              "/usr/share/doc/logi-tune-linux/copyright",
+              "/LC_MESSAGES/logi-tune-linux.mo",
+          ]
+          faltando = [c for c in exigidos if c not in conteudo]
+          if faltando:
+              sys.exit(f"{deb} is missing: {faltando}")
+
+          unidade = subprocess.run(
+              ["dpkg-deb", "--fsys-tarfile", deb],
+              capture_output=True, check=True,
+          ).stdout
+          import io, tarfile
+          with tarfile.open(fileobj=io.BytesIO(unidade)) as tar:
+              texto = tar.extractfile(
+                  "./usr/lib/systemd/user/logitune-daemon.service"
+              ).read().decode()
+          if "ExecStart=/usr/bin/logitune-daemon" not in texto:
+              sys.exit("the unit still points at the pipx path")
+          print(f"{deb}: complete")
           PY
 
       # Uma pré-release não tem seção própria no changelog: ela descreve a
