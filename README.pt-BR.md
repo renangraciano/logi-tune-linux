@@ -55,8 +55,8 @@ firmware `RBM 27.03.B0019`) por receptor Bolt, Ubuntu 24.04.4, GNOME 46, X11.
 | ✅ | Remapeamento e desvio de botões | `0x1B04` |
 | ✅ | Easy-Switch entre três computadores | `0x1814` `0x1815` |
 | ✅ | **Feedback háptico — 15 padrões** | `0x19B0` |
-| ✅ | **Roda do polegar como alternador de aplicativos** | `0x2150` |
-| ✅ | Perfis por aplicação, com interface (X11) | — |
+| ✅ | **Roda do polegar com qualquer ação, ou o alternador** | `0x2150` |
+| ✅ | Perfis por aplicação, ponteiro e rolagem inclusos (X11) | — |
 | ✅ | **53 ações para atribuir a botões** | — |
 | ✅ | Gestos num botão segurado (opcional) | `0x1B04` |
 | ✅ | Calar o motor háptico com bateria baixa | `0x1004` |
@@ -174,7 +174,19 @@ que explique por quê. É a mesma armadilha que o Solaar deixa, descrita nas
 Há três formas de usar, e todas compartilham os mesmos ajustes.
 
 **O aplicativo.** Procure por *Logi Tune Linux* no menu de aplicativos, ou rode
-`logitune-gui`. Os controles são aplicados no mouse conforme você os move.
+`logitune-gui`. Escolha um botão na lista para definir o que ele faz, acrescente
+um perfil por aplicativo e ajuste os tempos dos gestos e da roda do polegar.
+
+Tudo que você muda é gravado na configuração e o daemon aplica sem reiniciar —
+inclusive a velocidade do ponteiro e as chaves de rolagem, que é o que as faz
+valer por perfil. Escrever direto no mouse não bastaria: o daemon reaplica o
+perfil a cada troca de janela, então um ajuste que só existisse no aparelho
+duraria até o próximo aplicativo ganhar o foco.
+
+<p align="center">
+  <img src="docs/screenshot-buttons.png" alt="A lista de botões programáveis" width="380">
+  <img src="docs/screenshot-button-editor.png" alt="Editando o que um botão faz" width="380">
+</p>
 
 **O daemon**, em segundo plano, reconfigurando o mouse conforme o aplicativo em
 foco. Veja [abaixo](#perfis-por-aplicação).
@@ -192,7 +204,12 @@ logitune button voltar --remap 0x0052
 logitune hosts                # computadores pareados
 logitune host 2               # move o mouse para o canal 2
 logitune haptic 3             # toca um padrão de vibração
-logitune doctor               # verifica permissões e dependências
+logitune actions              # o catálogo que um botão pode receber
+logitune actions --run media.play_pause   # experimenta uma
+logitune watch --raw-xy       # mede movimento, para calibrar gestos
+logitune watch --thumb        # observa a roda do polegar reportando giro
+logitune scroll --no-thumb-divert         # devolve a rolagem horizontal
+logitune doctor               # verifica permissões, dependências e o mouse
 logitune-gui                  # interface gráfica
 ```
 
@@ -238,16 +255,20 @@ polling e sem consumo de CPU em repouso.
 
 `logitune actions` lista tudo que um botão pode fazer, agrupado como o Logi
 Options+ agrupa, com uma marca no que estiver indisponível na sua sessão e o
-motivo. Na janela, clique num botão do desenho do mouse. No arquivo, atribua
-pelo id:
+motivo. Na janela, escolha um botão na lista. No arquivo, atribua pelo id:
 
 ```json
 "bindings": {
   "0x0053": "browser.back",
   "0x0056": { "action": "key.shortcut", "keys": "ctrl+shift+t" },
-  "0x00C4": { "action": "app.launch", "app": "org.gnome.Calculator" }
+  "0x00C4": { "action": "app.launch", "app": "org.gnome.Calculator.desktop" }
 }
 ```
+
+O aplicativo grava o id do `.desktop` por você — o campo abre a lista dos
+aplicativos instalados em vez de exigir que você saiba um. Escrito à mão, ele
+também aceita o nome do comando (`gnome-calculator`) ou o nome visível
+(`Calculadora`).
 
 Cada ação passa pelo backend que lhe cabe, e a diferença importa:
 
@@ -307,11 +328,15 @@ Ajuste em *Gestos*, no aplicativo, ou no arquivo:
 
 Meça os seus com `logitune watch <cid> --raw-xy`.
 
+<p align="center">
+  <img src="docs/screenshot-gestures.png" alt="Limiares dos gestos e a roda do polegar" width="420">
+</p>
+
 ### A roda do polegar
 
 Girá-la pode alternar aplicativos em vez de rolar para os lados — o recurso que
-o Logi Options+ chama de App Switcher. Escolha em *Roda do polegar*, no
-aplicativo, ou:
+o Logi Options+ chama de App Switcher — ou disparar qualquer ação do catálogo,
+uma por sentido de giro. Escolha em *Roda do polegar*, no aplicativo, ou:
 
 ```json
 "default": { "thumbwheel": "window.switch_apps" },
@@ -399,12 +424,25 @@ logitune watch       # desvia botões e mostra os eventos que eles emitem
 
 ## Roadmap
 
-- [ ] Menu radial do Actions Ring via extensão do GNOME Shell
-- [ ] Perfis por aplicação no Wayland (a mesma extensão resolve os dois)
-- [ ] Decifrar `0x19C0`
-- [ ] Interface em inglês
-- [ ] Pacotes Flatpak e `.deb`
-- [ ] Suporte além do MX Master 4 — a pilha é HID++ 2.0 genérica, falta testar
+Acompanhado como [issues](https://github.com/renangraciano/logi-tune-linux/issues).
+
+**A seguir**
+
+- [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) Pacotes
+  `.deb` e Flatpak, para instalar não exigir clonar um repositório
+
+**Arriscado, ou pesquisa de resultado incerto**
+
+- [#14](https://github.com/renangraciano/logi-tune-linux/issues/14) Rolagem
+  estendida — o item mais arriscado; desviar a roda pode deixar um mouse que
+  não rola
+- [#15](https://github.com/renangraciano/logi-tune-linux/issues/15) Menu radial
+  do Actions Ring via extensão do GNOME Shell, que também resolve os perfis por
+  aplicação no Wayland
+- [#16](https://github.com/renangraciano/logi-tune-linux/issues/16) Decifrar a
+  intensidade háptica e o `0x19C0` — pode não estar exposto
+- [#17](https://github.com/renangraciano/logi-tune-linux/issues/17) Testar em
+  mouses além do MX Master 4 — a pilha é HID++ 2.0 genérica, falta hardware
 
 ## Limitações conhecidas
 
@@ -418,11 +456,42 @@ logitune watch       # desvia botões e mostra os eventos que eles emitem
   rápida.
 - Testado apenas com o MX Master 4 por receptor Bolt.
 
+## Traduzindo
+
+O idioma de origem é o inglês; o resto são catálogos `gettext`, o português
+brasileiro inclusive — ele era o original e virou tradução para que chegar pelo
+README não signifique encontrar um idioma que você talvez não leia.
+
+```bash
+sudo apt install gettext
+scripts/build-translations.sh          # compila os catálogos
+LOGITUNE_LANG=pt_BR logitune-gui       # experimenta sem mudar a sessão
+```
+
+Para começar um idioma novo, copie `po/logi-tune-linux.pot` para `po/<código>.po`,
+preencha as linhas `msgstr` e rode o script de build. Depois de mexer em
+qualquer texto traduzível do código, rode `scripts/update-translations.sh` — a
+suíte de testes reprova quando o catálogo fica para trás, que é o que impede
+uma mensagem de aparecer sem tradução numa janela traduzida.
+
+A instalação compila os catálogos sozinha. Sem o `gettext` na máquina o build
+pula esse passo com um aviso e a interface fica em inglês, o que é um programa
+funcionando em vez de uma instalação quebrada.
+
 ## Contribuindo
 
 Relatos de dispositivo são a contribuição mais valiosa — `logitune features` e
 `logitune buttons` de um mouse que ainda não vimos descrevem toda a superfície
 HID++ dele. Veja o [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Créditos
+
+A engenharia reversa por trás do [Solaar](https://github.com/pwr-Solaar/Solaar)
+e a especificação pública do HID++ 2.0 da Logitech foram a base para entender o
+protocolo. Que o recurso `0x19B0` é o motor háptico foi identificado de forma
+independente por [ncr/mx-master-4-haptic](https://github.com/ncr/mx-master-4-haptic)
+e [talamar49/orbit-mouse](https://github.com/talamar49/orbit-mouse), e a
+sondagem daqui concorda com os dois.
 
 ## Licença
 
