@@ -122,15 +122,16 @@ class ActionPicker(Adw.Dialog):
         self._page = Adw.PreferencesPage()
         self._build_groups()
 
-        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
-        scroller.set_child(self._page)
+        # A Adw.PreferencesPage já rola sozinha; um Gtk.ScrolledWindow em
+        # volta dela seria um segundo rolador aninhado.
+        self._page.set_vexpand(True)
 
         caixa = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         busca = Gtk.Box(margin_start=12, margin_end=12, margin_top=12, margin_bottom=6)
         self._search.set_hexpand(True)
         busca.append(self._search)
         caixa.append(busca)
-        caixa.append(scroller)
+        caixa.append(self._page)
 
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(Adw.HeaderBar())

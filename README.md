@@ -56,8 +56,8 @@ GNOME 46, X11.
 | ✅ | Button remapping and diversion | `0x1B04` |
 | ✅ | Easy-Switch between three hosts | `0x1814` `0x1815` |
 | ✅ | **Haptic feedback — 15 waveforms** | `0x19B0` |
-| ✅ | **Thumb wheel as an application switcher** | `0x2150` |
-| ✅ | Per-application profiles, with a UI (X11) | — |
+| ✅ | **Thumb wheel bound to any action, or the app switcher** | `0x2150` |
+| ✅ | Per-application profiles, pointer and scrolling included (X11) | — |
 | ✅ | **53 actions to bind buttons to** | — |
 | ✅ | Gestures on a held button (opt-in) | `0x1B04` |
 | ✅ | Silence the haptic motor on low battery | `0x1004` |
@@ -174,11 +174,20 @@ leaves behind, described under [known limitations](#known-limitations).
 There are three ways in, and they share the same settings.
 
 **The app.** Search for *Logi Tune Linux* in your application menu, or run
-`logitune-gui`. Click a button on the picture of the mouse to choose what it
-does, add a profile per application, and set the gesture and thumb-wheel
-timings. Pointer and scrolling changes apply to the mouse as you move the
-slider; everything else is written to the configuration and picked up by the
-daemon without a restart.
+`logitune-gui`. Pick a button from the list to choose what it does, add a
+profile per application, and set the gesture and thumb-wheel timings.
+
+Everything you change is written to the configuration and picked up by the
+daemon without a restart — including the pointer speed and the scrolling
+switches, which is what makes them work per profile. Writing them straight to
+the mouse would not: the daemon re-applies the profile on every window switch,
+so a setting that lives only on the device lasts until the next application
+takes focus.
+
+<p align="center">
+  <img src="docs/screenshot-buttons.png" alt="The list of programmable buttons" width="380">
+  <img src="docs/screenshot-button-editor.png" alt="Editing what a button does" width="380">
+</p>
 
 **The daemon**, in the background, applying button actions, gestures and
 per-application profiles. Installed above; `systemctl --user status
@@ -266,9 +275,14 @@ and why. Bind by id, and pass parameters when an action needs them:
 "bindings": {
   "0x0053": "browser.back",
   "0x0056": { "action": "key.shortcut", "keys": "ctrl+shift+t" },
-  "0x00C4": { "action": "app.launch", "app": "org.gnome.Calculator" }
+  "0x00C4": { "action": "app.launch", "app": "org.gnome.Calculator.desktop" }
 }
 ```
+
+The app writes the desktop id for you — the parameter opens the list of
+installed applications rather than asking you to know one. Written by hand it
+also accepts the command name (`gnome-calculator`) or the visible name
+(`Calculator`).
 
 Each action runs through whichever backend fits it, and the difference matters:
 
@@ -346,10 +360,15 @@ register as holds:
 
 The app has these under *Gestures*, so the file is optional.
 
+<p align="center">
+  <img src="docs/screenshot-gestures.png" alt="Gesture thresholds and the thumb wheel" width="420">
+</p>
+
 ### The thumb wheel
 
 Rolling it can switch applications instead of scrolling sideways — the feature
-Logi Options+ calls App Switcher. Pick it under *Thumb wheel* in the app, or:
+Logi Options+ calls App Switcher — or fire any action in the catalogue, one per
+direction of travel. Pick it under *Thumb wheel* in the app, or:
 
 ```json
 "default": { "thumbwheel": "window.switch_apps" },
@@ -458,19 +477,10 @@ If you decode something, please [open an issue](https://github.com/renangraciano
 Tracked as [issues](https://github.com/renangraciano/logi-tune-linux/issues),
 roughly in the order they matter.
 
-**Before this can call itself 1.0**
+**Next**
 
-- [#8](https://github.com/renangraciano/logi-tune-linux/issues/8) Profile and
-  button-mapping UI, so the config file becomes optional
-- [#9](https://github.com/renangraciano/logi-tune-linux/issues/9) Translate the
-  command line — the window is done, the CLI is still Portuguese
-
-**Visible gaps against Logi Options+**
-
-- [#12](https://github.com/renangraciano/logi-tune-linux/issues/12) Turn
-  haptics off on low battery
 - [#13](https://github.com/renangraciano/logi-tune-linux/issues/13) `.deb` and
-  Flatpak packages
+  Flatpak packages, so installing does not mean cloning a repository
 
 **Risky, or research with an uncertain outcome**
 

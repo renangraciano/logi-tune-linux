@@ -71,9 +71,11 @@ class WheelDialog(Adw.Dialog):
         #: nunca chegavam a aparecer.
         self._modo_escolhido: str | None = None
 
-        scroller = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
         self._page = Adw.PreferencesPage()
-        scroller.set_child(self._page)
+        # A Adw.PreferencesPage já rola sozinha: ela tem um
+        # Gtk.ScrolledWindow interno. Envolvê-la num segundo criava dois
+        # roladores aninhados, e o de fora — o que o código pegava para
+        # mandar a página ao topo — não tinha nada para rolar.
 
         subtitulo = _("in “{}”").format(profile) if profile else _("this mouse")
         toolbar = Adw.ToolbarView()
@@ -82,7 +84,7 @@ class WheelDialog(Adw.Dialog):
                 title_widget=Adw.WindowTitle(title=_("Thumb wheel"), subtitle=subtitulo)
             )
         )
-        toolbar.set_content(scroller)
+        toolbar.set_content(self._page)
         self.set_child(toolbar)
 
         self._rebuild()
@@ -103,7 +105,7 @@ class WheelDialog(Adw.Dialog):
         # A Adw.PreferencesPage não remove grupos por API pública, então a
         # reconstrução troca a página inteira dentro do scroller.
         self._page = Adw.PreferencesPage()
-        self.get_child().get_content().set_child(self._page)
+        self.get_child().set_content(self._page)
 
         vinculo = self._binding()
         modo = self._modo(vinculo)
