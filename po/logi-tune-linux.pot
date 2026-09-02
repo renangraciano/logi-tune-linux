@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: logi-tune-linux 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/renangraciano/logi-tune-linux/"
 "issues\n"
-"POT-Creation-Date: 2026-09-01 22:39-0300\n"
+"POT-Creation-Date: 2026-09-01 23:31-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -366,7 +366,7 @@ msgstr ""
 msgid "drag right"
 msgstr ""
 
-#: logitune/actions/spec.py:57 logitune/ui/window.py:1138
+#: logitune/actions/spec.py:57 logitune/ui/window.py:1244
 msgid "System"
 msgstr ""
 
@@ -489,7 +489,7 @@ msgstr ""
 msgid "{} mode, threshold {}"
 msgstr ""
 
-#: logitune/cli.py:172 logitune/ui/window.py:264
+#: logitune/cli.py:172 logitune/ui/window.py:274
 msgid "factory default: {}"
 msgstr ""
 
@@ -947,7 +947,7 @@ msgstr ""
 msgid "high-resolution scrolling"
 msgstr ""
 
-#: logitune/cli.py:1044 logitune/ui/window.py:1341
+#: logitune/cli.py:1044 logitune/ui/window.py:1452
 msgid "invert the thumb wheel"
 msgstr ""
 
@@ -1174,19 +1174,27 @@ msgstr ""
 msgid "ratchet"
 msgstr ""
 
-#: logitune/ui/action_picker.py:38
+#: logitune/ui/action_picker.py:52
+msgid "Pick from the installed applications"
+msgstr ""
+
+#: logitune/ui/action_picker.py:94
+msgid "{} — not installed any more"
+msgstr ""
+
+#: logitune/ui/action_picker.py:109
 msgid "Choose an action"
 msgstr ""
 
-#: logitune/ui/action_picker.py:48
+#: logitune/ui/action_picker.py:119
 msgid "Filter actions"
 msgstr ""
 
-#: logitune/ui/action_picker.py:74
+#: logitune/ui/action_picker.py:145
 msgid "Recommended"
 msgstr ""
 
-#: logitune/ui/action_picker.py:158
+#: logitune/ui/action_picker.py:232
 msgid "Assign"
 msgstr ""
 
@@ -1210,19 +1218,19 @@ msgstr ""
 msgid "Already has a profile"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:77
+#: logitune/ui/button_dialog.py:77 logitune/ui/wheel_dialog.py:78
 msgid "in “{}”"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:77
+#: logitune/ui/button_dialog.py:77 logitune/ui/wheel_dialog.py:78
 msgid "this mouse"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:103
+#: logitune/ui/button_dialog.py:103 logitune/ui/wheel_dialog.py:115
 msgid "Applies only while “{}” is in front"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:105
+#: logitune/ui/button_dialog.py:105 logitune/ui/wheel_dialog.py:117
 msgid "Applies whenever no profile takes over"
 msgstr ""
 
@@ -1256,7 +1264,7 @@ msgstr ""
 msgid "On click"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:149 logitune/ui/window.py:863
+#: logitune/ui/button_dialog.py:149 logitune/ui/window.py:999
 msgid "Gestures"
 msgstr ""
 
@@ -1265,15 +1273,17 @@ msgid ""
 "Hold the button and drag. The mouse buzzes when it recognises the direction."
 msgstr ""
 
-#: logitune/ui/button_dialog.py:176 logitune/ui/window.py:649
+#: logitune/ui/button_dialog.py:176 logitune/ui/wheel_dialog.py:188
+#: logitune/ui/window.py:711
 msgid "Remove"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:193
+#: logitune/ui/button_dialog.py:193 logitune/ui/wheel_dialog.py:205
 msgid "No action"
 msgstr ""
 
-#: logitune/ui/button_dialog.py:197 logitune/ui/window.py:683
+#: logitune/ui/button_dialog.py:197 logitune/ui/wheel_dialog.py:209
+#: logitune/ui/window.py:758 logitune/ui/window.py:819
 msgid "Unknown action: {}"
 msgstr ""
 
@@ -1293,497 +1303,555 @@ msgstr ""
 msgid "Discard"
 msgstr ""
 
-#: logitune/ui/mouse_view.py:247 logitune/ui/mouse_view.py:407
-#: logitune/ui/window.py:519 logitune/ui/window.py:744
+#: logitune/ui/mouse_view.py:275 logitune/ui/mouse_view.py:445
+#: logitune/ui/window.py:581 logitune/ui/window.py:880
 msgid "{}  ·  inherited from Global"
 msgstr ""
 
-#: logitune/ui/mouse_view.py:262 logitune/ui/window.py:753
+#: logitune/ui/mouse_view.py:290 logitune/ui/window.py:889
 msgid "Back to the button default"
 msgstr ""
 
-#: logitune/ui/mouse_view.py:269
+#: logitune/ui/mouse_view.py:296
 msgid "Configure"
 msgstr ""
 
-#: logitune/ui/window.py:73
+#: logitune/ui/wheel_dialog.py:49
+msgid "Scroll sideways"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:50
+msgid "An action for each direction"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:51
+msgid "Switch applications"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:60 logitune/ui/wheel_dialog.py:82
+#: logitune/ui/wheel_dialog.py:113 logitune/ui/window.py:404
+#: logitune/ui/window.py:1130
+msgid "Thumb wheel"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:125 logitune/ui/window.py:1142
+msgid "What rolling does"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:127
+msgid ""
+"The wheel keeps scrolling sideways until you give it something else to do."
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:131
+msgid "Mode"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:143
+msgid "Actions"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:144
+msgid "Each notch of the wheel fires one of these."
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:148 logitune/ui/window.py:750
+msgid "Roll forward"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:156 logitune/ui/window.py:751
+msgid "Roll back"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:167
+msgid "Rolling walks through the open windows"
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:169
+msgid ""
+"The chosen window comes forward once the wheel stops. How long it waits is "
+"under Thumb wheel, in the main window."
+msgstr ""
+
+#: logitune/ui/wheel_dialog.py:182
+msgid "Choose what one notch of the wheel does in this direction."
+msgstr ""
+
+#: logitune/ui/window.py:75
 msgid "Search for devices again"
 msgstr ""
 
-#: logitune/ui/window.py:97
+#: logitune/ui/window.py:99
 msgid "Looking for the mouse…"
 msgstr ""
 
-#: logitune/ui/window.py:98
+#: logitune/ui/window.py:100
 msgid "Checking the connected Logitech devices."
 msgstr ""
 
-#: logitune/ui/window.py:107
+#: logitune/ui/window.py:109
 msgid "No Logitech mouse found"
 msgstr ""
 
-#: logitune/ui/window.py:110
+#: logitune/ui/window.py:112
 msgid ""
 "Switch the mouse on and check that the logi-tune-linux udev rules are "
 "installed."
 msgstr ""
 
-#: logitune/ui/window.py:115
+#: logitune/ui/window.py:117
 msgid "Search again"
 msgstr ""
 
-#: logitune/ui/window.py:157
+#: logitune/ui/window.py:159
 msgid "The device was found, but reading it failed: {}"
 msgstr ""
 
-#: logitune/ui/window.py:217
+#: logitune/ui/window.py:226
 msgid "Could not read: {}. Refresh to try again."
 msgstr ""
 
-#: logitune/ui/window.py:221
+#: logitune/ui/window.py:230
 msgid "Device"
 msgstr ""
 
-#: logitune/ui/window.py:226
+#: logitune/ui/window.py:235
 msgid "connection: {}"
 msgstr ""
 
-#: logitune/ui/window.py:232
+#: logitune/ui/window.py:241
 msgid "Battery"
 msgstr ""
 
-#: logitune/ui/window.py:246
+#: logitune/ui/window.py:255
 msgid "Pointer"
 msgstr ""
 
-#: logitune/ui/window.py:247
+#: logitune/ui/window.py:256
 msgid "How many dots per inch the sensor reports."
 msgstr ""
 
-#: logitune/ui/window.py:255
-msgid "Sensitivity (DPI)"
+#: logitune/ui/window.py:264
+msgid "Pointer speed (DPI)"
 msgstr ""
 
-#: logitune/ui/window.py:258
+#: logitune/ui/window.py:268
 msgid ""
 "How far the pointer travels for the same hand movement. Higher is faster and "
 "less precise. The mouse leaves the factory at {}."
 msgstr ""
 
-#: logitune/ui/window.py:272
+#: logitune/ui/window.py:282
 msgid "Scrolling"
 msgstr ""
 
-#: logitune/ui/window.py:278
+#: logitune/ui/window.py:288
 msgid "Wheel locked (ratchet)"
 msgstr ""
 
-#: logitune/ui/window.py:281
+#: logitune/ui/window.py:291
 msgid ""
 "On, the wheel clicks step by step. Off, it spins freely and coasts — good "
 "for long documents."
 msgstr ""
 
-#: logitune/ui/window.py:289
+#: logitune/ui/window.py:299
 msgid "Off, the wheel spins freely"
 msgstr ""
 
-#: logitune/ui/window.py:295
+#: logitune/ui/window.py:305
 msgid "SmartShift threshold"
 msgstr ""
 
-#: logitune/ui/window.py:298
+#: logitune/ui/window.py:308
 msgid ""
 "How hard you have to flick the wheel before it unlocks and spins freely. "
 "Lower unlocks sooner. The mouse leaves the factory at {}."
 msgstr ""
 
-#: logitune/ui/window.py:307
+#: logitune/ui/window.py:317
 msgid "speed that releases the ratchet · default {}"
 msgstr ""
 
-#: logitune/ui/window.py:318
+#: logitune/ui/window.py:328
 msgid "High-resolution scrolling"
 msgstr ""
 
-#: logitune/ui/window.py:321
+#: logitune/ui/window.py:331
 msgid ""
 "Scroll pixel by pixel instead of a line at a time. Smoother, and a few older "
 "programs do not follow it."
 msgstr ""
 
-#: logitune/ui/window.py:329
+#: logitune/ui/window.py:339
 msgid "Smooth, pixel-by-pixel scrolling"
 msgstr ""
 
-#: logitune/ui/window.py:334
+#: logitune/ui/window.py:344
 msgid "Invert wheel direction"
 msgstr ""
 
-#: logitune/ui/window.py:336
+#: logitune/ui/window.py:346
 msgid "Push the wheel away from you to scroll down instead of up."
 msgstr ""
 
-#: logitune/ui/window.py:347
+#: logitune/ui/window.py:357
 msgid "Invert the thumb wheel"
 msgstr ""
 
-#: logitune/ui/window.py:349
+#: logitune/ui/window.py:359
 msgid "Roll the thumb wheel forward to scroll left instead of right."
 msgstr ""
 
-#: logitune/ui/window.py:355
+#: logitune/ui/window.py:365 logitune/ui/window.py:761
 msgid "Horizontal scrolling"
 msgstr ""
 
-#: logitune/ui/window.py:376
+#: logitune/ui/window.py:386
 msgid "Buttons"
 msgstr ""
 
-#: logitune/ui/window.py:377
+#: logitune/ui/window.py:387
 msgid "Click a button on the mouse, or pick one from the list."
 msgstr ""
 
-#: logitune/ui/window.py:409
+#: logitune/ui/window.py:444
 msgid "The service is not running"
 msgstr ""
 
-#: logitune/ui/window.py:412
+#: logitune/ui/window.py:447
 msgid ""
 "Button actions are applied by the daemon. Start it with: systemctl --user "
 "enable --now logitune-daemon"
 msgstr ""
 
-#: logitune/ui/window.py:467
+#: logitune/ui/window.py:526
 msgid "Follows the “{}” profile."
 msgstr ""
 
-#: logitune/ui/window.py:470
+#: logitune/ui/window.py:529
 msgid "Same in every profile."
 msgstr ""
 
-#: logitune/ui/window.py:521
+#: logitune/ui/window.py:583
 msgid "inherited from Global"
 msgstr ""
 
-#: logitune/ui/window.py:554 logitune/ui/window.py:558
-#: logitune/ui/window.py:574
+#: logitune/ui/window.py:616 logitune/ui/window.py:620
+#: logitune/ui/window.py:636
 msgid "Global"
 msgstr ""
 
-#: logitune/ui/window.py:590
+#: logitune/ui/window.py:652
 msgid "Profile for an application"
 msgstr ""
 
-#: logitune/ui/window.py:596
+#: logitune/ui/window.py:658
 msgid "Remove this profile"
 msgstr ""
 
-#: logitune/ui/window.py:630
+#: logitune/ui/window.py:692
 msgid "Profile created for {}."
 msgstr ""
 
-#: logitune/ui/window.py:645
+#: logitune/ui/window.py:707
 msgid "Remove the profile {}?"
 msgstr ""
 
-#: logitune/ui/window.py:646
+#: logitune/ui/window.py:708
 msgid "That application's buttons go back to following Global."
 msgstr ""
 
-#: logitune/ui/window.py:648
+#: logitune/ui/window.py:710
 msgid "Cancel"
 msgstr ""
 
-#: logitune/ui/window.py:660
+#: logitune/ui/window.py:722
 msgid "Profile {} removed."
 msgstr ""
 
-#: logitune/ui/window.py:675 logitune/ui/window.py:831
+#: logitune/ui/window.py:793
+msgid "The thumb wheel scrolls sideways again."
+msgstr ""
+
+#: logitune/ui/window.py:811 logitune/ui/window.py:967
 msgid "Button default"
 msgstr ""
 
-#: logitune/ui/window.py:678
+#: logitune/ui/window.py:814
 msgid "{} gestures: {}"
 msgstr ""
 
-#: logitune/ui/window.py:704
+#: logitune/ui/window.py:840
 msgid "Choose what “{}” does. Same button as the marker on the drawing."
 msgstr ""
 
-#: logitune/ui/window.py:751
+#: logitune/ui/window.py:887
 msgid "Go back to following Global"
 msgstr ""
 
-#: logitune/ui/window.py:804
+#: logitune/ui/window.py:940
 msgid "{} is back to its default."
 msgstr ""
 
-#: logitune/ui/window.py:813
+#: logitune/ui/window.py:949
 msgid "Swap buttons with each other"
 msgstr ""
 
-#: logitune/ui/window.py:816
+#: logitune/ui/window.py:952
 msgid ""
 "Written to the mouse itself: works without the service, but only swaps one "
 "button for another button's behaviour."
 msgstr ""
 
-#: logitune/ui/window.py:866
+#: logitune/ui/window.py:1002
 msgid ""
 "A button can carry up to seven functions: tap, double tap, hold and drag in "
 "four directions. Since nothing on screen shows which direction does what, "
 "leave this off if you prefer one function per button."
 msgstr ""
 
-#: logitune/ui/window.py:875
+#: logitune/ui/window.py:1011
 msgid "Recognise gestures"
 msgstr ""
 
-#: logitune/ui/window.py:876
+#: logitune/ui/window.py:1012
 msgid "Applies to buttons that have gestures configured"
 msgstr ""
 
-#: logitune/ui/window.py:881
+#: logitune/ui/window.py:1017
 msgid ""
 "Off, every button fires its action the moment you press it. On, buttons that "
 "have gestures wait for you to release before deciding what you meant."
 msgstr ""
 
-#: logitune/ui/window.py:895
+#: logitune/ui/window.py:1031
 msgid "Hold starts after"
 msgstr ""
 
-#: logitune/ui/window.py:896
+#: logitune/ui/window.py:1032
 msgid "Below this, a press counts as a tap"
 msgstr ""
 
-#: logitune/ui/window.py:900
+#: logitune/ui/window.py:1036
 msgid ""
 "In milliseconds. Hold the button longer than this and it counts as a hold "
 "instead of a tap. Raise it if holds fire when you meant to click."
 msgstr ""
 
-#: logitune/ui/window.py:909
+#: logitune/ui/window.py:1045
 msgid "Double tap window"
 msgstr ""
 
-#: logitune/ui/window.py:910
+#: logitune/ui/window.py:1046
 msgid "How long a second tap still counts as a double"
 msgstr ""
 
-#: logitune/ui/window.py:914
+#: logitune/ui/window.py:1050
 msgid ""
 "In milliseconds. Lower it if two separate taps keep being read as one double "
 "tap."
 msgstr ""
 
-#: logitune/ui/window.py:922
+#: logitune/ui/window.py:1058
 msgid "Drag threshold"
 msgstr ""
 
-#: logitune/ui/window.py:924
+#: logitune/ui/window.py:1060
 msgid ""
 "Sensor units before a press becomes a drag. Raise it if a plain click "
 "sometimes turns into one"
 msgstr ""
 
-#: logitune/ui/window.py:930
+#: logitune/ui/window.py:1066
 msgid ""
 "How far the mouse has to travel while the button is down before it counts as "
 "a drag. An ordinary click already moves the mouse about a hundred units, so "
 "values under that will misfire."
 msgstr ""
 
-#: logitune/ui/window.py:945
+#: logitune/ui/window.py:1081
 msgid "No button has gestures"
 msgstr ""
 
-#: logitune/ui/window.py:948
+#: logitune/ui/window.py:1084
 msgid ""
 "Open a button above to set them up; 'logitune actions' lists what can be "
 "assigned."
 msgstr ""
 
-#: logitune/ui/window.py:969
+#: logitune/ui/window.py:1105
 msgid "switch gestures on"
 msgstr ""
 
-#: logitune/ui/window.py:969
+#: logitune/ui/window.py:1105
 msgid "switch gestures off"
 msgstr ""
 
-#: logitune/ui/window.py:1002
-msgid "Thumb wheel"
-msgstr ""
-
-#: logitune/ui/window.py:1004
+#: logitune/ui/window.py:1132
 msgid ""
-"Rolling it can switch applications instead of scrolling sideways. The wheel "
-"only stops scrolling when you give it something else to do."
+"Rolling it can switch applications, or fire an action for each direction. "
+"The wheel only stops scrolling sideways when you give it something else to "
+"do."
 msgstr ""
 
-#: logitune/ui/window.py:1010
-msgid "What rolling does"
-msgstr ""
-
-#: logitune/ui/window.py:1022
+#: logitune/ui/window.py:1148
 msgid ""
 "Leave it on sideways scrolling to keep the system behaviour. Anything else "
 "takes the wheel over, and it stops scrolling."
 msgstr ""
 
-#: logitune/ui/window.py:1030
+#: logitune/ui/window.py:1158
 msgid "Silence haptics below"
 msgstr ""
 
-#: logitune/ui/window.py:1032
+#: logitune/ui/window.py:1160
 msgid ""
 "Battery percentage under which the motor stops buzzing. Zero keeps it always "
 "on"
 msgstr ""
 
-#: logitune/ui/window.py:1038
+#: logitune/ui/window.py:1166
 msgid ""
 "The motor is the hungriest part after the sensor. Below this battery "
 "percentage the gestures still work, they just stop buzzing."
 msgstr ""
 
-#: logitune/ui/window.py:1046
+#: logitune/ui/window.py:1174
 msgid "Confirm after"
 msgstr ""
 
-#: logitune/ui/window.py:1048
+#: logitune/ui/window.py:1176
 msgid ""
 "How long the switcher waits, once the wheel stops, before bringing the "
 "chosen window forward"
 msgstr ""
 
-#: logitune/ui/window.py:1055
+#: logitune/ui/window.py:1183
 msgid ""
 "In milliseconds, and the same in every profile. Too short and the window "
 "comes forward before you finish choosing; too long and the switcher feels "
 "stuck."
 msgstr ""
 
-#: logitune/ui/window.py:1071
+#: logitune/ui/window.py:1199
 msgid "Power saving"
 msgstr ""
 
-#: logitune/ui/window.py:1073
+#: logitune/ui/window.py:1201
 msgid ""
 "The haptic motor is the hungriest part after the sensor, and buzzing on "
 "every gesture has a cost."
 msgstr ""
 
-#: logitune/ui/window.py:1109
-msgid "change the thumb wheel"
-msgstr ""
-
-#: logitune/ui/window.py:1140
+#: logitune/ui/window.py:1246
 msgid ""
 "Session settings, not the mouse's. They apply to every pointer including the "
 "touchpad, are the same in every profile, and stay after this program is gone."
 msgstr ""
 
-#: logitune/ui/window.py:1147
+#: logitune/ui/window.py:1253
 msgid "Left-handed"
 msgstr ""
 
-#: logitune/ui/window.py:1148
+#: logitune/ui/window.py:1254
 msgid "Swaps the left and right buttons"
 msgstr ""
 
-#: logitune/ui/window.py:1153
+#: logitune/ui/window.py:1259
 msgid ""
 "Changes the whole session, so it affects the touchpad too. Written to GNOME "
 "settings, not to the mouse."
 msgstr ""
 
-#: logitune/ui/window.py:1162
+#: logitune/ui/window.py:1266
 msgid "Pointer speed"
 msgstr ""
 
-#: logitune/ui/window.py:1164
+#: logitune/ui/window.py:1269
 msgid ""
 "How far the pointer travels, applied by the session. Separate from the DPI "
 "above, which the sensor itself uses"
 msgstr ""
 
-#: logitune/ui/window.py:1170
+#: logitune/ui/window.py:1275
 msgid ""
 "From -1 (slowest) to 1 (fastest). This is the same slider GNOME Settings "
 "shows; the DPI above is the sensor itself, and the two multiply."
 msgstr ""
 
-#: logitune/ui/window.py:1178
+#: logitune/ui/window.py:1285
 msgid "Acceleration"
 msgstr ""
 
-#: logitune/ui/window.py:1189
+#: logitune/ui/window.py:1296
 msgid ""
 "Adaptive speeds the pointer up as you move faster. Flat maps movement one to "
 "one, which is what most games expect."
 msgstr ""
 
-#: logitune/ui/window.py:1203
+#: logitune/ui/window.py:1310
 msgid "swap the buttons"
 msgstr ""
 
-#: logitune/ui/window.py:1220
+#: logitune/ui/window.py:1322
+msgid "change the pointer speed"
+msgstr ""
+
+#: logitune/ui/window.py:1331
 msgid "change the acceleration"
 msgstr ""
 
-#: logitune/ui/window.py:1230
+#: logitune/ui/window.py:1341
 msgid "Computers"
 msgstr ""
 
-#: logitune/ui/window.py:1231
+#: logitune/ui/window.py:1342
 msgid "The mouse stores three pairings and switches between them."
 msgstr ""
 
-#: logitune/ui/window.py:1237
+#: logitune/ui/window.py:1348
 msgid "connected"
 msgstr ""
 
-#: logitune/ui/window.py:1242
+#: logitune/ui/window.py:1353
 msgid "Switch"
 msgstr ""
 
-#: logitune/ui/window.py:1245
+#: logitune/ui/window.py:1356
 msgid ""
 "The mouse leaves this computer at once. Bring it back with the button "
 "underneath it, or from the other computer."
 msgstr ""
 
-#: logitune/ui/window.py:1267
+#: logitune/ui/window.py:1378
 msgid "Could not {}."
 msgstr ""
 
-#: logitune/ui/window.py:1290
+#: logitune/ui/window.py:1401
 msgid "apply the DPI"
 msgstr ""
 
-#: logitune/ui/window.py:1303
+#: logitune/ui/window.py:1414
 msgid "adjust SmartShift"
 msgstr ""
 
-#: logitune/ui/window.py:1314
+#: logitune/ui/window.py:1425
 msgid "change the wheel mode"
 msgstr ""
 
-#: logitune/ui/window.py:1323
+#: logitune/ui/window.py:1434
 msgid "change the scroll resolution"
 msgstr ""
 
-#: logitune/ui/window.py:1332
+#: logitune/ui/window.py:1443
 msgid "invert the wheel"
 msgstr ""
 
-#: logitune/ui/window.py:1361
+#: logitune/ui/window.py:1472
 msgid "Switching computer… the mouse will disconnect from here."
 msgstr ""
 
-#: logitune/ui/window.py:1364
+#: logitune/ui/window.py:1475
 msgid "switch computer"
 msgstr ""

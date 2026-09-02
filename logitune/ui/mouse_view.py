@@ -110,6 +110,7 @@ class MouseHotspotView(Gtk.Box):
         describe_binding: Callable,
         on_configure: Callable,
         on_clear: Callable,
+        extras: list | None = None,
     ) -> None:
         super().__init__(
             orientation=Gtk.Orientation.VERTICAL,
@@ -119,6 +120,9 @@ class MouseHotspotView(Gtk.Box):
         _ensure_css()
 
         self._controls = {c.control_id: c for c in controls}
+        #: Pontos que não são botões, por chave: ``(hotspot, rótulo, descrever,
+        #: configurar, limpar)``. A roda do polegar é o primeiro deles.
+        self._extras = {e[0].key: e for e in (extras or ())}
         self._binding_for = binding_for
         self._describe_binding = describe_binding
         self._on_configure = on_configure
@@ -192,6 +196,9 @@ class MouseHotspotView(Gtk.Box):
                 continue
             self._create_hotspot(cid, x_pct, y_pct)
 
+        for chave, (ponto, *_resto) in self._extras.items():
+            self._create_hotspot(chave, ponto.x, ponto.y)
+
         # Trocar a imagem muda a proporção, e com ela toda a geometria.
         self._picture.connect(
             "notify::paintable", lambda *_: self._overlay.queue_allocate()
@@ -227,11 +234,28 @@ class MouseHotspotView(Gtk.Box):
         popover.set_parent(btn)
         self._hotspot_popovers[cid] = popover
 
-    def _create_popover(self, cid: int) -> Gtk.Popover:
+    def _resumo(self, chave) -> tuple[str, str, bool, bool]:
+        """Rótulo, descrição, se é herdado e se dá para limpar.
+
+        Um marcador pode apontar para um botão programável ou para um ponto
+        que não é botão, como a roda do polegar. Os dois têm nome e estado
+        para mostrar; o que muda é onde esse estado mora.
+        """
+        extra = self._extras.get(chave)
+        if extra is not None:
+            _ponto, rotulo, descrever, _configurar, limpar = extra
+            descricao = descrever()
+            return rotulo, descricao, False, limpar is not None and bool(descricao)
+
+        control = self._controls[chave]
+        binding, herdado = self._binding_for(chave)
+        descricao = self._describe_binding(binding)
+        proprio = binding is not None and not binding.is_empty and not herdado
+        return control.label, descricao, herdado, proprio
+
+    def _create_popover(self, cid) -> Gtk.Popover:
         """Popover com nome do botão, ação configurada e botões de ação."""
-        control = self._controls[cid]
-        binding, inherited = self._binding_for(cid)
-        description = self._describe_binding(binding)
+        rotulo, description, inherited, own_binding = self._resumo(cid)
 
         popover = Gtk.Popover()
         popover.add_css_class("hotspot-popover")
@@ -242,7 +266,7 @@ class MouseHotspotView(Gtk.Box):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         box.add_css_class("hotspot-popover-box")
 
-        title = Gtk.Label(label=control.label, xalign=0)
+        title = Gtk.Label(label=rotulo, xalign=0)
         title.add_css_class("hotspot-popover-title")
         box.append(title)
 
@@ -264,7 +288,6 @@ class MouseHotspotView(Gtk.Box):
         clear_btn = Gtk.Button(icon_name="edit-clear-symbolic")
         clear_btn.add_css_class("flat")
         clear_btn.set_tooltip_text(_("Back to the button default"))
-        own_binding = binding is not None and not binding.is_empty and not inherited
         clear_btn.set_sensitive(own_binding)
         clear_btn.connect("clicked", self._on_clear_clicked, cid, popover)
         actions_box.append(clear_btn)
@@ -388,6 +411,10 @@ class MouseHotspotView(Gtk.Box):
     ) -> None:
         """Abre o diálogo completo de edição do botão."""
         popover.popdown()
+        extra = self._extras.get(cid)
+        if extra is not None:
+            extra[3]()
+            return
         control = self._controls.get(cid)
         if control is not None:
             self._on_configure(control)
@@ -397,21 +424,26 @@ class MouseHotspotView(Gtk.Box):
     ) -> None:
         """Limpa o vínculo do botão."""
         popover.popdown()
+        extra = self._extras.get(cid)
+        if extra is not None:
+            if extra[4] is not None:
+                extra[4]()
+            return
         control = self._controls.get(cid)
         if control is not None:
             self._on_clear(control)
 
-    def _describe_tooltip(self, cid: int) -> None:
-        """Põe no marcador o nome do botão e o que ele faz hoje."""
+    def _describe_tooltip(self, cid) -> None:
+        """Põe no marcador o nome do ponto e o que ele faz hoje."""
         btn = self._hotspot_buttons.get(cid)
-        control = self._controls.get(cid)
-        if btn is None or control is None:
+        if btn is None:
             return
-        binding, herdado = self._binding_for(cid)
-        descricao = self._describe_binding(binding)
+        if cid not in self._extras and cid not in self._controls:
+            return
+        rotulo, descricao, herdado, _proprio = self._resumo(cid)
         if herdado:
             descricao = _("{}  ·  inherited from Global").format(descricao)
-        btn.set_tooltip_text(f"{control.label} — {descricao}")
+        btn.set_tooltip_text(f"{rotulo} — {descricao}")
 
     # -- API pública -------------------------------------------------------
 

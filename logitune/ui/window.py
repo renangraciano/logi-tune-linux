@@ -13,13 +13,15 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
-from logitune.actions import ButtonBinding, UnknownAction, resolve  # noqa: E402
+from logitune.actions import Binding, ButtonBinding, UnknownAction, resolve  # noqa: E402
 from logitune.config import Match, Profile, Settings  # noqa: E402
 from logitune.i18n import _  # noqa: E402
 from logitune.ui.app_picker import AppPicker  # noqa: E402
 from logitune.ui.button_dialog import ButtonDialog  # noqa: E402
 from logitune.ui.desktop import ACCEL_PROFILES, DesktopMouseSettings  # noqa: E402
+from logitune.ui.mouse_model import MX_MASTER_4_EXTRAS  # noqa: E402
 from logitune.ui.mouse_view import MouseHotspotView  # noqa: E402
+from logitune.ui.wheel_dialog import WheelDialog  # noqa: E402
 from logitune.ui.state import ConfigStore  # noqa: E402
 from logitune.device import LogitechDevice, close_devices, discover_devices  # noqa: E402
 from logitune.hidpp.device import HidppError, NoResponse  # noqa: E402
@@ -258,8 +260,9 @@ class LogituneWindow(Adw.ApplicationWindow):
         state = device.dpi.get_dpi()
         step = dpi_range.step or 50
 
-        row = Adw.SpinRow.new_with_range(dpi_range.minimum, dpi_range.maximum, step)
-        row.set_title(_("Sensitivity (DPI)"))
+        row = self._slider_row(
+            _("Pointer speed (DPI)"), dpi_range.minimum, dpi_range.maximum, step
+        )
         row.set_tooltip_text(
             _(
                 "How far the pointer travels for the same hand movement. "
@@ -270,7 +273,7 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._register_setting_row(
             "dpi", row, state.current, _("factory default: {}").format(state.default)
         )
-        row.connect("notify::value", self._on_dpi_changed)
+        row._scale.connect("value-changed", self._on_dpi_changed)  # noqa: SLF001
         group.add(row)
         self._register_group(group, per_profile=True)
         page.add(group)
@@ -387,6 +390,24 @@ class LogituneWindow(Adw.ApplicationWindow):
         self._button_rows = {}
         self._button_controls = {}
 
+        # A roda do polegar aparece no desenho e não é um botão: sem esta
+        # entrada ela ficava desenhada, sem marcador, e a única forma de
+        # configurá-la era achar a seção certa no fim da página.
+        extras = []
+        if device.thumbwheel is not None:
+            for ponto in MX_MASTER_4_EXTRAS:
+                if ponto.key != "thumbwheel":
+                    continue
+                extras.append(
+                    (
+                        ponto,
+                        _("Thumb wheel"),
+                        self._describe_wheel,
+                        self._edit_wheel,
+                        self._clear_wheel,
+                    )
+                )
+
         self._mouse_view = MouseHotspotView(
             controls=divertable,
             model_name=device.name,
@@ -394,6 +415,7 @@ class LogituneWindow(Adw.ApplicationWindow):
             describe_binding=self._describe_binding,
             on_configure=self._pick_action,
             on_clear=self._clear_binding,
+            extras=extras,
         )
         if self._mouse_view.available:
             # O desenho vai num grupo só dele, antes da lista. Um
@@ -460,6 +482,30 @@ class LogituneWindow(Adw.ApplicationWindow):
     # gravam na configuração e deixam o daemon aplicar, que é o mesmo caminho
     # que os botões e os gestos já seguiam.
 
+    @staticmethod
+    def _slider_row(
+        titulo: str, minimo: float, maximo: float, passo: float, *, digitos: int = 0
+    ) -> Adw.ActionRow:
+        """Uma linha com controle deslizante e o valor ao lado.
+
+        A libadwaita não tem uma linha de slider pronta, e um campo de fiar
+        para velocidade obriga a acertar um número quando o que se quer é
+        arrastar até parecer certo. O widget fica guardado em ``_scale`` para
+        ``_load_setting_row`` saber como preencher a linha.
+        """
+        escala = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, minimo, maximo, passo)
+        escala.set_draw_value(True)
+        escala.set_value_pos(Gtk.PositionType.RIGHT)
+        escala.set_digits(digitos)
+        escala.set_hexpand(True)
+        escala.set_size_request(260, -1)
+        escala.set_valign(Gtk.Align.CENTER)
+
+        row = Adw.ActionRow(title=titulo)
+        row.add_suffix(escala)
+        row._scale = escala  # noqa: SLF001
+        return row
+
     def _register_group(
         self, group: Adw.PreferencesGroup, *, per_profile: bool
     ) -> None:
@@ -520,7 +566,10 @@ class LogituneWindow(Adw.ApplicationWindow):
         anterior = self._loading
         self._loading = True
         try:
-            if isinstance(row, Adw.SpinRow):
+            escala = getattr(row, "_scale", None)
+            if escala is not None:
+                escala.set_value(float(valor))
+            elif isinstance(row, Adw.SpinRow):
                 row.set_value(float(valor))
             else:
                 row.set_active(bool(valor))
@@ -681,6 +730,80 @@ class LogituneWindow(Adw.ApplicationWindow):
             mouse_view.refresh_all()
         for cid in list(self._button_rows):
             self._refresh_button_row_by_cid(cid)
+        self._refresh_wheel()
+
+    # -- roda do polegar -----------------------------------------------
+
+    def _describe_wheel(self) -> str:
+        """O que a roda faz hoje, em uma linha."""
+        config = self._store.load()
+        vinculo = self._edited_settings(config).wheel_binding()
+        if vinculo.stateful:
+            try:
+                return resolve(Binding(action=vinculo.stateful)).label
+            except UnknownAction:
+                return vinculo.stateful
+        partes = []
+        # Os rótulos são os mesmos do editor de propósito: "forward" e "back"
+        # sozinhos colidiriam com os botões Voltar e Avançar na tradução.
+        for rotulo, ligacao in (
+            (_("Roll forward"), vinculo.up),
+            (_("Roll back"), vinculo.down),
+        ):
+            if ligacao is None:
+                continue
+            try:
+                nome = resolve(ligacao).label
+            except UnknownAction:
+                nome = _("Unknown action: {}").format(ligacao.action)
+            partes.append(f"{rotulo}: {nome}")
+        if not partes:
+            return _("Horizontal scrolling")
+        return "  ·  ".join(partes)
+
+    def _edit_wheel(self) -> None:
+        """Abre o editor da roda, com o mesmo catálogo dos botões."""
+
+        def ler():
+            return self._edited_settings(self._store.load()).thumbwheel
+
+        def gravar(bruto) -> None:
+            def aplicar(config) -> None:
+                ajustes = self._edited_settings(config)
+                ajustes.thumbwheel = bruto or None
+
+            self._store.update(aplicar)
+            self._refresh_wheel()
+
+        config = self._store.load()
+        WheelDialog(
+            ler,
+            gravar,
+            profile=(
+                None if self._profile_index is None else self._profile_label(config)
+            ),
+        ).present(self)
+
+    def _clear_wheel(self) -> None:
+        def remover(config) -> None:
+            self._edited_settings(config).thumbwheel = None
+
+        self._store.update(remover)
+        self._refresh_wheel()
+        self._toast(_("The thumb wheel scrolls sideways again."))
+
+    def _refresh_wheel(self) -> None:
+        """Atualiza o marcador e a linha da roda sem remontar a página."""
+        mouse_view = getattr(self, "_mouse_view", None)
+        if mouse_view is not None:
+            mouse_view.refresh_hotspot("thumbwheel")
+        linha = getattr(self, "_wheel_row", None)
+        if linha is not None:
+            linha.set_subtitle(self._describe_wheel())
+        atraso = getattr(self, "_switcher_delay_row", None)
+        if atraso is not None:
+            vinculo = self._edited_settings(self._store.load()).wheel_binding()
+            atraso.set_sensitive(vinculo.stateful == "window.switch_apps")
 
     def _describe_binding(self, binding: ButtonBinding | None) -> str:
         """Como a linha do botão descreve o que ele faz hoje."""
@@ -995,49 +1118,41 @@ class LogituneWindow(Adw.ApplicationWindow):
 
     #: As opções da roda, na ordem em que aparecem. O rótulo é traduzido na
     #: montagem; o valor é o que vai para o config.json.
-    _WHEEL_CHOICES = (
-        (None, "Horizontal scrolling"),
-        ("window.switch_apps", "Switch applications"),
-        ("volume", "Volume"),
-    )
-
     def _add_wheel_group(self, page: Adw.PreferencesPage, device: LogitechDevice) -> None:
         """A roda do polegar: o que ela faz e quanto espera para confirmar."""
         if device.thumbwheel is None:
             return
 
         config = self._store.load()
-        atual = self._edited_settings(config).thumbwheel
-        if isinstance(atual, dict):
-            atual = "volume"
+        vinculo = self._edited_settings(config).wheel_binding()
 
         group = Adw.PreferencesGroup(
             title=_("Thumb wheel"),
             description=_(
-                "Rolling it can switch applications instead of scrolling "
-                "sideways. The wheel only stops scrolling when you give it "
-                "something else to do."
+                "Rolling it can switch applications, or fire an action for "
+                "each direction. The wheel only stops scrolling sideways when "
+                "you give it something else to do."
             ),
         )
 
-        combo = Adw.ComboRow(title=_("What rolling does"))
-        modelo = Gtk.StringList()
-        for _valor, rotulo in self._WHEEL_CHOICES:
-            modelo.append(_(rotulo))
-        combo.set_model(modelo)
-        combo.set_selected(
-            next(
-                (i for i, (v, _r) in enumerate(self._WHEEL_CHOICES) if v == atual), 0
-            )
+        # A roda escolhe do mesmo catálogo que os botões. Antes eram três
+        # opções fixas, o que fazia a roda parecer a única parte do mouse sem
+        # personalização de verdade.
+        linha = Adw.ActionRow(
+            title=_("What rolling does"),
+            subtitle=self._describe_wheel(),
+            activatable=True,
         )
-        combo.set_tooltip_text(
+        linha.set_tooltip_text(
             _(
                 "Leave it on sideways scrolling to keep the system behaviour. "
                 "Anything else takes the wheel over, and it stops scrolling."
             )
         )
-        combo.connect("notify::selected", self._on_wheel_changed)
-        group.add(combo)
+        linha.add_suffix(Gtk.Image(icon_name="go-next-symbolic"))
+        linha.connect("activated", lambda _r: self._edit_wheel())
+        group.add(linha)
+        self._wheel_row = linha
 
         economia = Adw.SpinRow.new_with_range(0, 100, 5)
         economia.set_title(_("Silence haptics below"))
@@ -1062,7 +1177,7 @@ class LogituneWindow(Adw.ApplicationWindow):
               "bringing the chosen window forward")
         )
         atraso.set_value(config.switcher_idle_ms)
-        atraso.set_sensitive(atual == "window.switch_apps")
+        atraso.set_sensitive(vinculo.stateful == "window.switch_apps")
         atraso.set_tooltip_text(
             _(
                 "In milliseconds, and the same in every profile. Too short and "
@@ -1101,28 +1216,6 @@ class LogituneWindow(Adw.ApplicationWindow):
                 lambda c: c.power.__setitem__("haptics_below", int(row.get_value()))
             ),
         )
-
-    def _on_wheel_changed(self, row: Adw.ComboRow, _param) -> None:
-        if self._loading:
-            return
-        valor = self._WHEEL_CHOICES[row.get_selected()][0]
-
-        def aplicar(config) -> None:
-            ajustes = self._edited_settings(config)
-            if valor is None:
-                ajustes.thumbwheel = None
-            elif valor == "volume":
-                ajustes.thumbwheel = {
-                    "up": "media.volume_up",
-                    "down": "media.volume_down",
-                }
-            else:
-                ajustes.thumbwheel = valor
-
-        self._guarded(lambda: self._store.update(aplicar), _("change the thumb wheel"))
-        linha = getattr(self, "_switcher_delay_row", None)
-        if linha is not None:
-            linha.set_sensitive(valor == "window.switch_apps")
 
     def _on_switcher_delay_changed(self, row: Adw.SpinRow, _param) -> None:
         if self._loading:
@@ -1170,14 +1263,13 @@ class LogituneWindow(Adw.ApplicationWindow):
         canhoto.connect("notify::active", self._on_left_handed_changed)
         group.add(canhoto)
 
-        velocidade = Adw.SpinRow.new_with_range(-1.0, 1.0, 0.05)
-        velocidade.set_digits(2)
-        velocidade.set_title(_("Pointer speed"))
+        velocidade = self._slider_row(_("Pointer speed"), -1.0, 1.0, 0.05, digitos=2)
+        velocidade._scale.add_mark(0.0, Gtk.PositionType.BOTTOM, None)  # noqa: SLF001
         velocidade.set_subtitle(
             _("How far the pointer travels, applied by the session. Separate "
               "from the DPI above, which the sensor itself uses")
         )
-        velocidade.set_value(self._desktop.speed)
+        velocidade._scale.set_value(self._desktop.speed)  # noqa: SLF001
         velocidade.set_tooltip_text(
             _(
                 "From -1 (slowest) to 1 (fastest). This is the same slider "
@@ -1185,7 +1277,9 @@ class LogituneWindow(Adw.ApplicationWindow):
                 "the two multiply."
             )
         )
-        velocidade.connect("notify::value", self._on_pointer_speed_changed)
+        velocidade._scale.connect(  # noqa: SLF001
+            "value-changed", self._on_pointer_speed_changed
+        )
         group.add(velocidade)
 
         aceleracao = Adw.ComboRow(title=_("Acceleration"))
@@ -1216,13 +1310,17 @@ class LogituneWindow(Adw.ApplicationWindow):
             _("swap the buttons"),
         )
 
-    def _on_pointer_speed_changed(self, row: Adw.SpinRow, _param) -> None:
+    def _on_pointer_speed_changed(self, escala: Gtk.Scale) -> None:
         if self._loading:
             return
+        valor = escala.get_value()
         self._debounce(
             "pointer_speed",
             _DEBOUNCE_MS,
-            lambda: setattr(self._desktop, "speed", row.get_value()),
+            lambda: self._guarded(
+                lambda: setattr(self._desktop, "speed", valor),
+                _("change the pointer speed"),
+            ),
         )
 
     def _on_accel_profile_changed(self, row: Adw.ComboRow, _param) -> None:
@@ -1294,8 +1392,8 @@ class LogituneWindow(Adw.ApplicationWindow):
 
         self._debounce_ids[key] = GLib.timeout_add(delay_ms, fire)
 
-    def _on_dpi_changed(self, row: Adw.SpinRow, _param) -> None:
-        value = int(row.get_value())
+    def _on_dpi_changed(self, escala: Gtk.Scale) -> None:
+        value = int(escala.get_value())
         self._debounce(
             "dpi",
             _DEBOUNCE_MS,

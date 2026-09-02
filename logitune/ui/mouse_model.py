@@ -8,6 +8,8 @@ que cada coordenada tem uma região no SVG roda no CI justamente por isso.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 #: Posições relativas (x%, y%) de cada Control ID no desenho do MX Master 4.
 #: Convertidas em pixels em tempo de execução, a partir do tamanho real da
 #: imagem renderizada.
@@ -34,6 +36,35 @@ MX_MASTER_4_REGIONS: dict[int, str] = {
     0x00C3: "gesture",
     0x01A0: "actions-ring",
 }
+
+
+@dataclass(frozen=True)
+class ExtraHotspot:
+    """Um ponto do desenho que não é um botão programável.
+
+    A roda do polegar aparece no desenho e não tem Control ID: ela não é um
+    botão, é uma roda. Sem uma entrada aqui ela ficava desenhada e sem
+    marcador, e a única forma de configurá-la era achar a seção certa lá
+    embaixo na página — o que na prática queria dizer que ela não tinha
+    personalização.
+    """
+
+    #: Identificador interno, usado como chave no lugar do Control ID.
+    key: str
+    #: Posição relativa no desenho, em porcento.
+    x: float
+    y: float
+    #: Id da região correspondente no SVG, para o teste conferir.
+    region: str
+
+
+#: Pontos do desenho do MX Master 4 que não são botões.
+MX_MASTER_4_EXTRAS: tuple[ExtraHotspot, ...] = (
+    # Centro do ``rect`` id="thumb-wheel" (x=148, y=286, 22x86) no viewBox
+    # de 420x620.
+    ExtraHotspot(key="thumbwheel", x=37.9, y=53.1, region="thumb-wheel"),
+)
+
 
 #: Registro de modelos → (nome do desenho, mapa de hotspots).
 MODEL_REGISTRY: dict[str, tuple[str, dict[int, tuple[float, float]]]] = {
