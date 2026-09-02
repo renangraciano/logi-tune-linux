@@ -14,16 +14,16 @@ from dataclasses import dataclass
 #: Convertidas em pixels em tempo de execução, a partir do tamanho real da
 #: imagem renderizada.
 #:
-#: Os números saem do centro de cada região do SVG, num viewBox de 420×620 —
+#: Os números saem do centro de cada região do SVG, num viewBox de 520×360 —
 #: não de tentativa e erro sobre a imagem. Se o desenho mudar, recalcule a
 #: partir dos elementos com o id correspondente em ``assets/mx-master-4.svg``.
 MX_MASTER_4_HOTSPOTS: dict[int, tuple[float, float]] = {
-    0x0052: (62.4, 23.5),   # wheel — clique do meio
-    0x00C4: (62.6, 48.1),   # smartshift
-    0x0053: (28.1, 50.5),   # back
-    0x0056: (28.1, 58.9),   # forward
-    0x00C3: (25.2, 68.4),   # gesture
-    0x01A0: (25.2, 79.1),   # actions-ring
+    0x0052: (33.7, 32.8),   # wheel — clique do meio, na face de cima
+    0x00C4: (52.5, 32.8),   # smartshift, atrás da roda
+    0x0056: (18.5, 51.1),   # forward, o da frente na lateral
+    0x0053: (30.0, 51.1),   # back
+    0x00C3: (28.8, 68.9),   # gesture — o apoio do polegar inteiro
+    0x01A0: (63.5, 67.0),   # actions-ring, o painel háptico atrás do apoio
 }
 
 #: O id da região no SVG correspondente a cada botão. Serve para conferir o
@@ -60,9 +60,9 @@ class ExtraHotspot:
 
 #: Pontos do desenho do MX Master 4 que não são botões.
 MX_MASTER_4_EXTRAS: tuple[ExtraHotspot, ...] = (
-    # Centro do ``rect`` id="thumb-wheel" (x=148, y=286, 22x86) no viewBox
-    # de 420x620.
-    ExtraHotspot(key="thumbwheel", x=37.9, y=53.1, region="thumb-wheel"),
+    # Centro do ``rect`` id="thumb-wheel" (x=196, y=160, 96x30) no viewBox
+    # de 520x360.
+    ExtraHotspot(key="thumbwheel", x=46.9, y=48.6, region="thumb-wheel"),
 )
 
 

@@ -31,9 +31,12 @@ _ASSETS = Path(__file__).resolve().parent / "assets"
 #: Diâmetro do marcador. Acompanha o ``min-width`` de ``.hotspot-button``
 #: em ``hotspot.css``; serve de reserva quando o widget ainda não mediu.
 _HOTSPOT_PX = 28
-#: Tamanho do desenho na tela, na proporção do viewBox (420×620).
-_DRAWING_H = 340
-_DRAWING_W = round(_DRAWING_H * 420 / 620)
+#: Caixa máxima do desenho na tela. O tamanho real sai da proporção da
+#: imagem dentro desta caixa, calculado quando ela carrega — fixar a
+#: proporção aqui quebraria em silêncio no dia em que o desenho mudasse de
+#: formato, que foi o que aconteceu ao trocar a vista de cima pela lateral.
+_DRAWING_MAX_W = 420
+_DRAWING_MAX_H = 300
 _CSS_LOADED = False
 
 
@@ -68,11 +71,33 @@ class _BoundedPicture(Gtk.Picture):
 
     __gtype_name__ = "LogituneBoundedPicture"
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._teto_w = _DRAWING_MAX_W
+        self._teto_h = _DRAWING_MAX_H
+
+    def fit_within(self, largura: int, altura: int) -> None:
+        """Ajusta o teto à proporção da imagem, dentro da caixa máxima."""
+        if largura <= 0 or altura <= 0:
+            return
+        escala = min(_DRAWING_MAX_W / largura, _DRAWING_MAX_H / altura)
+        self._teto_w = max(1, round(largura * escala))
+        self._teto_h = max(1, round(altura * escala))
+        # O mínimo de um Gtk.Picture que pode encolher é zero, e sem pedir
+        # este tamanho o desenho colapsa para nada em vez de ficar no tamanho
+        # que acabamos de calcular.
+        self.set_size_request(self._teto_w, self._teto_h)
+        self.queue_resize()
+
     def do_measure(self, orientation, for_size):
         minimo, natural, _min_base, _nat_base = Gtk.Picture.do_measure(
             self, orientation, for_size
         )
-        teto = _DRAWING_W if orientation == Gtk.Orientation.HORIZONTAL else _DRAWING_H
+        teto = (
+            self._teto_w
+            if orientation == Gtk.Orientation.HORIZONTAL
+            else self._teto_h
+        )
         # Uma imagem não tem linha de base; devolver uma faz o GTK reclamar.
         return min(minimo, teto), min(natural, teto), -1, -1
 
@@ -175,7 +200,11 @@ class MouseHotspotView(Gtk.Box):
         self._picture.set_filename(str(image_path))
         self._picture.set_can_shrink(True)
         self._picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-        self._picture.set_size_request(_DRAWING_W, _DRAWING_H)
+        pintavel = self._picture.get_paintable()
+        if pintavel is not None:
+            self._picture.fit_within(
+                pintavel.get_intrinsic_width(), pintavel.get_intrinsic_height()
+            )
         self._overlay.set_child(self._picture)
 
         # Quem posiciona os marcadores é o próprio Gtk.Overlay, que repergunta
